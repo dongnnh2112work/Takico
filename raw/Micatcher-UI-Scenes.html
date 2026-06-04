@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MiCatcher Jump Jump — UI Scene Spec</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bagel+Fat+One&family=Plus+Jakarta+Sans:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../web/src/styles/micatcher.css" />
+  <!-- CSS cần chạy server từ thư mục gốc repo: python3 -m http.server 3456 → /UI/Micatcher-UI-Scenes.html -->
+  <style>
+    /* ── Spec document chrome (không ảnh hưởng game runtime) ── */
+    html { scroll-behavior: smooth; }
+    body.spec-doc {
+      overflow: auto;
+      height: auto;
+      min-height: 100vh;
+      background: #0d1117;
+    }
+    .spec-nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 12px 20px;
+      background: rgba(2, 6, 26, 0.95);
+      border-bottom: 1px solid rgba(91, 238, 255, 0.25);
+      backdrop-filter: blur(12px);
+    }
+    .spec-nav a {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--cyan-400);
+      text-decoration: none;
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(91, 238, 255, 0.3);
+      transition: background 0.15s;
+    }
+    .spec-nav a:hover { background: rgba(0, 229, 255, 0.12); }
+    .spec-hero {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 32px 24px 16px;
+    }
+    .spec-hero h1 {
+      font-family: var(--font-display);
+      font-size: 28px;
+      margin: 0 0 8px;
+      color: var(--text-1);
+    }
+    .spec-hero p { color: var(--text-2); line-height: 1.6; margin: 0; }
+    .spec-flow {
+      max-width: 960px;
+      margin: 16px auto 32px;
+      padding: 20px 24px;
+      border-radius: 14px;
+      background: rgba(8, 18, 46, 0.6);
+      border: 1px solid rgba(91, 238, 255, 0.2);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text-2);
+      line-height: 1.8;
+    }
+    .spec-flow code {
+      color: var(--gold-400);
+      background: rgba(255, 217, 61, 0.08);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    .spec-scene {
+      max-width: 1200px;
+      margin: 0 auto 48px;
+      padding: 0 24px;
+    }
+    .spec-scene-header {
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      gap: 24px;
+      margin-bottom: 16px;
+      align-items: start;
+    }
+    @media (max-width: 900px) {
+      .spec-scene-header { grid-template-columns: 1fr; }
+    }
+    .spec-scene-title {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--gold-400);
+      margin-bottom: 6px;
+    }
+    .spec-scene-header h2 {
+      font-family: var(--font-display);
+      font-size: 22px;
+      margin: 0 0 8px;
+      color: var(--text-1);
+    }
+    .spec-scene-header .meta {
+      font-size: 13px;
+      color: var(--text-3);
+      line-height: 1.5;
+    }
+    .spec-notes {
+      padding: 16px 18px;
+      border-radius: 12px;
+      background: rgba(0, 229, 255, 0.06);
+      border: 1px solid rgba(91, 238, 255, 0.22);
+      font-size: 13px;
+      line-height: 1.65;
+      color: var(--text-2);
+    }
+    .spec-notes strong { color: var(--cyan-400); display: block; margin-bottom: 8px; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; }
+    .spec-notes ul { margin: 8px 0 0; padding-left: 18px; }
+    .spec-notes li { margin-bottom: 4px; }
+    .spec-preview {
+      position: relative;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 2px solid rgba(91, 238, 255, 0.35);
+      box-shadow: 0 24px 60px -20px rgba(0, 229, 255, 0.25);
+      background: var(--navy-1000);
+      aspect-ratio: 16 / 9;
+      min-height: 420px;
+    }
+    .spec-preview .overlay {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+    .spec-preview .app-shell {
+      position: absolute;
+      inset: 0;
+      height: 100%;
+    }
+    .spec-preview .content-grid {
+      flex: 1;
+      min-height: 0;
+      padding-bottom: 12px;
+    }
+    .spec-preview .game-stage {
+      min-height: 280px;
+    }
+    .spec-preview .game-stage canvas,
+    .spec-preview .spec-canvas-placeholder {
+      display: block;
+      width: 100%;
+      height: 100%;
+      min-height: 280px;
+      background: linear-gradient(180deg, #050b1f 0%, #0a1838 40%, #102a52 100%);
+    }
+    .spec-table-wrap {
+      margin-top: 16px;
+      overflow-x: auto;
+    }
+    table.spec-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    table.spec-table th,
+    table.spec-table td {
+      text-align: left;
+      padding: 10px 12px;
+      border-bottom: 1px solid rgba(91, 238, 255, 0.12);
+      vertical-align: top;
+    }
+    table.spec-table th {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--cyan-400);
+      background: rgba(8, 18, 46, 0.5);
+    }
+    table.spec-table td:first-child {
+      font-family: var(--font-mono);
+      color: var(--gold-400);
+      white-space: nowrap;
+    }
+    table.spec-table code {
+      font-size: 11px;
+      color: var(--cyan-mint);
+    }
+    .spec-footer {
+      max-width: 960px;
+      margin: 0 auto 48px;
+      padding: 24px;
+      font-size: 12px;
+      color: var(--text-3);
+      border-top: 1px solid rgba(91, 238, 255, 0.15);
+    }
+    .spec-tag {
+      display: inline-block;
+      font-family: var(--font-mono);
+      font-size: 9px;
+      letter-spacing: 1px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      background: rgba(255, 217, 61, 0.15);
+      color: var(--gold-400);
+      margin-right: 6px;
+    }
+    /* Scale attract/tutorial for preview frame */
+    .spec-preview .attract-logo { max-width: 320px; }
+    .spec-preview .attract-mascot { width: 120px; height: 120px; }
+    .spec-preview .attract-cta-main { font-size: 18px; }
+    .spec-preview .tutorial-card { transform: scale(0.85); transform-origin: center; }
+    .spec-preview .gameover-card,
+    .spec-preview .congrats-card { transform: scale(0.9); transform-origin: center; max-width: 90%; }
+  </style>
+</head>
+<body class="spec-doc" data-theme="echoCave">
+
+<nav class="spec-nav" aria-label="Scene navigation">
+  <a href="#flow">Flow</a>
+  <a href="#scene-00-shell">00 Shell</a>
+  <a href="#scene-01-attract">01 Attract</a>
+  <a href="#scene-02-tutorial">02 Tutorial</a>
+  <a href="#scene-03-playing">03 Playing</a>
+  <a href="#scene-04-over">04 Game Over</a>
+  <a href="#scene-05-win">05 Win</a>
+  <a href="#scene-06-tweaks">06 Tweaks</a>
+</nav>
+
+<header class="spec-hero">
+  <h1>MiCatcher Jump Jump — UI Scene Specification</h1>
+  <p>
+    Tài liệu HTML mô tả từng màn hình (scene) của kiosk game.
+    Source runtime: <code>Jump Jump Micatcher.html</code> · Next.js: <code>web/src/components/micatcher/MicatcherGame.tsx</code>
+  </p>
+</header>
+
+<section class="spec-flow" id="flow">
+  <strong style="color:var(--cyan-400);display:block;margin-bottom:8px;">STATE MACHINE</strong>
+  <code>body[data-state]</code> điều khiển scene hiển thị.<br />
+  <code>ATTRACT</code> → (tap/Space) → <code>TUTORIAL</code> → (tap/phím) → <code>PLAYING</code><br />
+  <code>PLAYING</code> → rơi khỏi map → <code>OVER</code> · đạt bục 15 → <code>WIN</code><br />
+  <code>OVER</code> / <code>WIN</code> → Retry → <code>PLAYING</code> · Home → <code>ATTRACT</code>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     SCENE 00 — SHARED SHELL (Top bar + layout)
+     ═══════════════════════════════════════════════════════════════════════ -->
+<article class="spec-scene" id="scene-00-shell">
+  <div class="spec-scene-header">
+    <div>
+      <div class="spec-scene-title">Scene 00 · Shared Shell</div>
+      <h2>App Shell — Header &amp; Layout</h2>
+      <p class="meta">
+        <span class="spec-tag">DOM</span> <code>.app-shell</code> · <code>.top-bar</code> · <code>.content-grid</code><br />
+        Hiển thị khi <code>data-state ≠ ATTRACT</code> (ẩn bằng <code>visibility: hidden</code> lúc attract).
+      </p>
+    </div>
+    <div class="spec-notes">
+      <strong>Ghi chú</strong>
+      <ul>
+        <li>Header cố định 64px: logo, stage label, EN/VI, fullscreen.</li>
+        <li>Main full-width: canvas game + HUD overlay.</li>
+        <li>Theme: <code>data-theme="echoCave|crystalArena|spotlightStage"</code></li>
+      </ul>
+    </div>
+  </div>
+  <div class="spec-preview">
+    <div class="app-shell">
+      <header class="top-bar">
+        <div class="top-brand">
+          <img src="assets/logo.png" alt="MiCatcher" style="height:38px" />
+          <div class="top-brand-divider"></div>
+          <div class="top-brand-event">JUMP JUMP · <b>STAGE 01</b></div>
+        </div>
+        <div class="top-actions">
+          <div class="lang-toggle">
+            <button class="lang-btn active">EN</button>
+            <button class="lang-btn">VI</button>
+          </div>
+          <button class="icon-btn">⛶ Fullscreen (F)</button>
+        </div>
+      </header>
+      <main class="content-grid">
+        <section class="game-stage">
+          <div class="spec-canvas-placeholder" aria-hidden="true"></div>
+        </section>
+      </main>
+    </div>
+  </div>
+  <div class="spec-table-wrap">
+    <table class="spec-table">
+      <thead><tr><th>Element</th><th>Class / ID</th><th>Mô tả</th></tr></thead>
+      <tbody>
+        <tr><td>Logo</td><td><code>.top-brand img</code></td><td>assets/logo.png</td></tr>
+        <tr><td>Stage label</td><td><code>.top-brand-event</code></td><td>JUMP JUMP · STAGE 01</td></tr>
+        <tr><td>Language</td><td><code>.lang-toggle</code></td><td>EN / VI — i18n toàn app</td></tr>
+        <tr><td>Fullscreen</td><td><code>.icon-btn</code></td><td>Phím F khi đang chơi</td></tr>
+      </tbody>
+    </table>
+  </div>
+</article>
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     SCENE 01 — ATTRACT
+     ═══════════════════════════════════════════════════════════════════════ -->
+<article class="spec-scene" id="scene-01-attract">
+  <div class="spec-scene-header">
+    <div>
+      <div class="spec-scene-title">Scene 01 · Attract</div>
+      <h2>ATTRACT — Màn hình chờ / Idle</h2>
+      <p class="meta">
+        <span class="spec-tag">State</span> <code>data-state="ATTRACT"</code><br />
+        <span class="spec-tag">DOM</span> <code>#attract.overlay</code>
+      </p>
+    </div>
+    <div class="spec-notes">
+      <strong>Ghi chú</strong>
+      <ul>
+        <li>Màn đầu tiên khi mở kiosk — che toàn màn, ẩn shell in-game.</li>
+        <li>Tap / Space / Enter → chuyển sang Tutorial.</li>
+        <li>Background: gradient + decoration (stalactite, sao, spark).</li>
+        <li>CTA pulse: “TAP · STAND · LEAP”.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="spec-preview">
+    <div class="overlay" id="attract-preview">
+      <div class="attract-bg"></div>
+      <div class="attract-decoration">
+        <img class="deco-stalactite-tl" src="assets/bg-6.png" alt="" />
+        <img class="deco-stalactite-tr" src="assets/bg-5.png" alt="" />
+        <img class="deco-mountain" src="assets/bg-4.png" alt="" />
+        <img class="deco-star" src="assets/star.png" alt="" style="top:18%;left:14%" />
+      </div>
+      <div class="attract-content">
+        <div class="attract-event-meta">
+          <span>HOA SEN UNI · MKT-MEDIA</span>
+          <span style="opacity:0.4">|</span>
+          <span><b>35 YEARS</b> · YOUTH UNION</span>
+        </div>
+        <img class="attract-logo" src="assets/logo-slogan.png" alt="MiCatcher 2026" />
+        <div class="attract-mascot"><img src="assets/mascot.png" alt="" /></div>
+        <div class="attract-cta">
+          <div class="attract-cta-main">TAP · STAND · LEAP</div>
+          <div class="attract-cta-sub">Press SPACE to start</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="spec-table-wrap">
+    <table class="spec-table">
+      <thead><tr><th>Element</th><th>i18n key</th><th>Mô tả</th></tr></thead>
+      <tbody>
+        <tr><td>Event meta</td><td>—</td><td>HOA SEN UNI · 35 YEARS (static)</td></tr>
+        <tr><td>Logo slogan</td><td>—</td><td>assets/logo-slogan.png</td></tr>
+        <tr><td>Mascot</td><td>—</td><td>Float animation · assets/mascot.png</td></tr>
+        <tr><td>CTA main</td><td><code>ctaMain</code></td><td>CHẠM · ĐỨNG · NHẢY (VI)</td></tr>
+        <tr><td>CTA sub</td><td><code>ctaSub</code></td><td>Nhấn SPACE để bắt đầu</td></tr>
+      </tbody>
+    </table>
+  </div>
+</article>
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     SCENE 02 — TUTORIAL
+     ═══════════════════════════════════════════════════════════════════════ -->
+<article class="spec-scene" id="scene-02-tutorial">
+  <div class="spec-scene-header">
+    <div>
+      <div class="spec-scene-title">Scene 02 · Tutorial</div>
+      <h2>TUTORIAL — Hướng dẫn chơi</h2>
+      <p class="meta">
+        <span class="spec-tag">State</span> <code>data-state="TUTORIAL"</code><br />
+        <span class="spec-tag">DOM</span> <code>#tutorial.overlay</code>
+      </p>
+    </div>
+    <div class="spec-notes">
+      <strong>Ghi chú</strong>
+      <ul>
+        <li>3 bước: STAND → CROUCH → LEAP (pose camera).</li>
+        <li>Icon bước 2 squash · bước 3 dùng mascot-fly.png.</li>
+        <li>Tap / phím bất kỳ → bắt đầu PLAYING + reset camera calib.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="spec-preview">
+    <div class="overlay">
+      <div class="attract-bg" style="opacity:0.88"></div>
+      <div class="tutorial-card">
+        <div class="panel-label" style="justify-content:center;margin-bottom:12px">— HOW TO CATCH —</div>
+        <div class="tutorial-frames">
+          <div class="tutorial-frame">
+            <div class="tutorial-step-num">01</div>
+            <div class="tutorial-step-icon"><img src="assets/mascot.png" alt="" /></div>
+            <div class="tutorial-step-label">STAND</div>
+            <div class="tutorial-step-sublabel">Stand on platform</div>
+          </div>
+          <div class="tutorial-frame">
+            <div class="tutorial-step-num">02</div>
+            <div class="tutorial-step-icon crouch"><img src="assets/mascot.png" alt="" /></div>
+            <div class="tutorial-step-label">CROUCH</div>
+            <div class="tutorial-step-sublabel">Squat to charge</div>
+          </div>
+          <div class="tutorial-frame">
+            <div class="tutorial-step-num">03</div>
+            <div class="tutorial-step-icon jump"><img src="assets/mascot-fly.png" alt="" /></div>
+            <div class="tutorial-step-label">LEAP</div>
+            <div class="tutorial-step-sublabel">Stand up to launch</div>
+          </div>
+        </div>
+        <div class="tutorial-title">Catch the next Mic</div>
+        <div class="tutorial-subtitle">Press any key · or tap to continue</div>
+      </div>
+    </div>
+  </div>
+  <div class="spec-table-wrap">
+    <table class="spec-table">
+      <thead><tr><th>Bước</th><th>i18n</th><th>Hành động người chơi</th></tr></thead>
+      <tbody>
+        <tr><td>01 STAND</td><td><code>stand</code> / <code>standSub</code></td><td>Đứng trên bục, sẵn sàng</td></tr>
+        <tr><td>02 CROUCH</td><td><code>crouch</code> / <code>crouchSub</code></td><td>Ngồi / nhún — tích lực</td></tr>
+        <tr><td>03 LEAP</td><td><code>leap</code> / <code>leapSub</code></td><td>Đứng lên — nhảy sang bục</td></tr>
+        <tr><td>Footer</td><td><code>tutorialTitle</code></td><td>Bắt lấy Mic tiếp theo</td></tr>
+      </tbody>
+    </table>
+  </div>
+</article>
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     SCENE 03 — PLAYING
+     ═══════════════════════════════════════════════════════════════════════ -->
+<article class="spec-scene" id="scene-03-playing">
+  <div class="spec-scene-header">
+    <div>
+      <div class="spec-scene-title">Scene 03 · In-Game</div>
+      <h2>PLAYING — Màn chơi chính</h2>
+      <p class="meta">
+        <span class="spec-tag">State</span> <code>data-state="PLAYING"</code><br />
+        <span class="spec-tag">DOM</span> <code>.app-shell</code> + <code>#gameCanvas</code> + HUD overlays
+      </p>
+    </div>
+    <div class="spec-notes">
+      <strong>Ghi chú</strong>
+      <ul>
+        <li>Canvas engine side-view 2.5D — score = số mic (bục đã qua).</li>
+        <li>HUD: điểm góc trên trái · camera + power góc dưới trái · slogan góc dưới phải.</li>
+        <li>Input: pose camera (nhún/bật) hoặc Space (fallback).</li>
+        <li>WIN khi đạt platform id 15 (FINAL_BLOCK_AT).</li>
+      </ul>
+    </div>
+  </div>
+  <div class="spec-preview">
+    <div class="app-shell">
+      <header class="top-bar">
+        <div class="top-brand">
+          <img src="assets/logo.png" alt="" style="height:38px" />
+          <div class="top-brand-divider"></div>
+          <div class="top-brand-event">JUMP JUMP · <b>STAGE 01</b></div>
+        </div>
+        <div class="top-actions">
+          <div class="lang-toggle"><button class="lang-btn active">EN</button><button class="lang-btn">VI</button></div>
+          <button class="icon-btn">⛶ Fullscreen</button>
+        </div>
+      </header>
+      <main class="content-grid">
+        <section class="game-stage">
+          <div class="spec-canvas-placeholder"></div>
+          <div class="stage-hud-top-left">
+            <div class="stage-score">
+              <div class="stage-score-tag">MICS CAUGHT</div>
+              <div class="stage-score-value">6</div>
+            </div>
+          </div>
+          <div class="stage-hud-bottom-left">
+            <div class="play-dock">
+              <div class="camera-box camera-box--dock">
+                <div class="camera-placeholder"><span>CAMERA FEED</span></div>
+                <div class="camera-status">● STANDING · READY</div>
+              </div>
+              <div class="power-block power-block--dock">
+                <div class="power-row">
+                  <div class="power-bar"><div class="power-fill" style="width:72%"></div></div>
+                  <div class="power-num">72</div>
+                </div>
+                <div class="power-hint">SQUAT · CHARGE · STAND UP TO LEAP</div>
+              </div>
+            </div>
+          </div>
+          <div class="stage-hud-bottom-right">
+            <span class="slogan-pill"><img src="assets/slogan.png" alt="Catch the Mic" /></span>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+  <div class="spec-table-wrap">
+    <table class="spec-table">
+      <thead><tr><th>HUD Zone</th><th>Selector</th><th>Chức năng</th></tr></thead>
+      <tbody>
+        <tr><td>Score</td><td><code>.stage-hud-top-left</code></td><td>Điểm mic hiện tại (#scoreValue)</td></tr>
+        <tr><td>Camera</td><td><code>.play-dock .camera-box</code></td><td>Video + skeleton overlay + trạng thái pose</td></tr>
+        <tr><td>Power bar</td><td><code>.power-block--dock</code></td><td>0–100 · sync tracking / Space charge</td></tr>
+        <tr><td>Slogan</td><td><code>.stage-hud-bottom-right</code></td><td>assets/slogan.png</td></tr>
+        <tr><td>Canvas</td><td><code>#gameCanvas</code></td><td>engine.js — platforms, mascot, physics</td></tr>
+      </tbody>
+    </table>
+  </div>
+</article>
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     SCENE 04 — GAME OVER
+     ═══════════════════════════════════════════════════════════════════════ -->
+<article class="spec-scene" id="scene-04-over">
+  <div class="spec-scene-header">
+    <div>
+      <div class="spec-scene-title">Scene 04 · Game Over</div>
+      <h2>OVER — Thua / rơi khỏi map</h2>
+      <p class="meta">
+        <span class="spec-tag">State</span> <code>data-state="OVER"</code><br />
+        <span class="spec-tag">DOM</span> <code>#gameover.overlay</code>
+      </p>
+    </div>
+    <div class="spec-notes">
+      <strong>Ghi chú</strong>
+      <ul>
+        <li>Trigger: player.y &gt; viewport (rơi xuống vực).</li>
+        <li>Hiển thị score, personal best, session top 5.</li>
+        <li>Retry Run → PLAYING · Back to Home → ATTRACT.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="spec-preview">
+    <div class="overlay">
+      <div class="attract-bg" style="background:rgba(0,0,0,0.6)"></div>
+      <div class="gameover-card">
+        <div class="gameover-tag">— THE MOMENT ENDED —</div>
+        <div class="gameover-title">YOU'RE OUT!</div>
+        <div class="gameover-stats">
+          <div class="gameover-stat">
+            <div class="label">MICS CAUGHT</div>
+            <div class="value">4</div>
+          </div>
+          <div class="gameover-stat best">
+            <div class="label">PERSONAL BEST</div>
+            <div class="value">6</div>
+          </div>
+        </div>
+        <div class="session-top">
+          <div class="session-top-label">SESSION TOP 5</div>
+          <ul class="session-list">
+            <li class="session-row gold"><span class="rank">01</span><span>Run #1</span><span class="val">6</span></li>
+            <li class="session-row"><span class="rank">02</span><span>Run #2</span><span class="val">4</span></li>
+          </ul>
+        </div>
+        <div class="gameover-actions">
+          <button class="primary">Retry Run</button>
+          <button class="secondary">Back to Home</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="spec-table-wrap">
+    <table class="spec-table">
+      <thead><tr><th>Element</th><th>ID</th><th>Action</th></tr></thead>
+      <tbody>
+        <tr><td>Score</td><td><code>#goScore</code></td><td>Game.score lượt vừa rồi</td></tr>
+        <tr><td>Best</td><td><code>#goBest</code></td><td>localStorage mc-best</td></tr>
+        <tr><td>Session list</td><td><code>#goSession</code></td><td>Top 5 phiên (dynamic)</td></tr>
+        <tr><td>Retry</td><td><code>#goRetry</code></td><td>setState PLAYING + Game.start()</td></tr>
+        <tr><td>Home</td><td><code>#goHome</code></td><td>setState ATTRACT</td></tr>
+      </tbody>
+    </table>
+  </div>
+</article>
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     SCENE 05 — WIN / CONGRATS
+     ═══════════════════════════════════════════════════════════════════════ -->
+<article class="spec-scene" id="scene-05-win">
+  <div class="spec-scene-header">
+    <div>
+      <div class="spec-scene-title">Scene 05 · Win</div>
+      <h2>WIN — Hoàn thành 15 bục</h2>
+      <p class="meta">
+        <span class="spec-tag">State</span> <code>data-state="WIN"</code><br />
+        <span class="spec-tag">DOM</span> <code>#congrats.overlay</code>
+      </p>
+    </div>
+    <div class="spec-notes">
+      <strong>Ghi chú</strong>
+      <ul>
+        <li>Trigger: landing platform id = 15 (final block).</li>
+        <li>Confetti animation · mascot bay + sao.</li>
+        <li>Stats: mics, moments (jumps), best.</li>
+        <li>CTA “Claim at the Booth” → về ATTRACT (kiosk event).</li>
+      </ul>
+    </div>
+  </div>
+  <div class="spec-preview">
+    <div class="overlay">
+      <div class="congrats-bg"></div>
+      <div class="congrats-card">
+        <div class="congrats-eyebrow">CHALLENGE COMPLETED</div>
+        <div class="congrats-title">YOU CAUGHT THE MIC!</div>
+        <div class="congrats-mascot">
+          <img src="assets/mascot-fly.png" alt="" />
+          <div class="congrats-mascot-stars">
+            <img src="assets/star.png" alt="" /><img src="assets/star.png" alt="" />
+          </div>
+        </div>
+        <div class="congrats-message">
+          <div class="congrats-message-title">Bravo, Catcher!</div>
+          <div class="congrats-message-body">You jumped through 15 stages and caught the Golden Mic.</div>
+          <div class="congrats-stats-row">
+            <div class="congrats-stat"><div class="num">15</div><div class="lbl">MICS CAUGHT</div></div>
+            <div class="congrats-stat"><div class="num">15</div><div class="lbl">MOMENTS</div></div>
+            <div class="congrats-stat"><div class="num">15</div><div class="lbl">BEST</div></div>
+          </div>
+        </div>
+        <div class="congrats-actions">
+          <button class="primary">Claim at the Booth</button>
+          <button class="secondary">Back to Home</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="spec-table-wrap">
+    <table class="spec-table">
+      <thead><tr><th>Element</th><th>i18n</th><th>Ghi chú</th></tr></thead>
+      <tbody>
+        <tr><td>Eyebrow</td><td><code>congratsEyebrow</code></td><td>HOÀN THÀNH THỬ THÁCH</td></tr>
+        <tr><td>Title</td><td><code>congratsTitle</code></td><td>BẠN ĐÃ BẮT ĐƯỢC MIC!</td></tr>
+        <tr><td>Body</td><td><code>congratsMessageBody</code></td><td>Hướng dẫn đến quầy sự kiện</td></tr>
+        <tr><td>Claim</td><td><code>claimReward</code></td><td>#congratsClaim → ATTRACT</td></tr>
+      </tbody>
+    </table>
+  </div>
+</article>
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     SCENE 06 — TWEAKS (Dev)
+     ═══════════════════════════════════════════════════════════════════════ -->
+<article class="spec-scene" id="scene-06-tweaks">
+  <div class="spec-scene-header">
+    <div>
+      <div class="spec-scene-title">Scene 06 · Dev Overlay</div>
+      <h2>TWEAKS — Panel debug / demo</h2>
+      <p class="meta">
+        <span class="spec-tag">Optional</span> Chỉ Next.js / HTML tweaks toolbar<br />
+        <span class="spec-tag">DOM</span> <code>.tweaks</code>
+      </p>
+    </div>
+    <div class="spec-notes">
+      <strong>Ghi chú</strong>
+      <ul>
+        <li>Ẩn trên production kiosk — dùng khi dev/design review.</li>
+        <li>Chọn theme, final block style, ngôn ngữ, nhảy nhanh scene.</li>
+        <li>Fast-forward platform · Demo AI autoplay.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="spec-preview" style="min-height:200px;aspect-ratio:auto;padding:24px;display:flex;align-items:flex-end;justify-content:flex-start;">
+    <div class="tweaks show" style="position:relative;max-width:280px;">
+      <div class="tweaks-header">
+        <div class="tweaks-title">Tweaks</div>
+        <button class="tweaks-close">×</button>
+      </div>
+      <div style="padding:12px;font-size:11px;color:var(--text-3);font-family:var(--font-mono)">
+        Visual Direction · Final Block · Language · Demo Screen · Jump to Platform…
+      </div>
+    </div>
+  </div>
+  <div class="spec-table-wrap">
+    <table class="spec-table">
+      <thead><tr><th>Section</th><th>Options</th></tr></thead>
+      <tbody>
+        <tr><td>Theme</td><td>echoCave · crystalArena · spotlightStage</td></tr>
+        <tr><td>Final block</td><td>trophy · throne (bục 15)</td></tr>
+        <tr><td>Demo screen</td><td>Attract · Tutorial · In-Game · Game Over · Congrats</td></tr>
+      </tbody>
+    </table>
+  </div>
+</article>
+
+<footer class="spec-footer">
+  <p>
+    <strong>Assets:</strong> <code>UI/assets/</code> ·
+    <strong>CSS:</strong> <code>web/src/styles/micatcher.css</code> ·
+    <strong>Game runtime:</strong> <a href="Jump Jump Micatcher.html" style="color:var(--cyan-400)">Jump Jump Micatcher.html</a>
+  </p>
+  <p style="margin-top:8px">Howls Studio · MiCatcher Jump Jump · UI Spec export</p>
+</footer>
+
+</body>
+</html>

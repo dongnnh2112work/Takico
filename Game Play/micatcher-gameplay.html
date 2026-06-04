@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MiCatcher Jump — Gameplay Module</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; }
+    html, body { width: 100%; height: 100%; overflow: hidden; font-family: system-ui, sans-serif; background: #050b1f; }
+    #stage {
+      position: relative;
+      width: 100%;
+      height: 100%;
+    }
+    #gameCanvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+    #hud {
+      position: fixed;
+      left: 12px;
+      bottom: 12px;
+      z-index: 5;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      pointer-events: none;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    #hud span {
+      background: rgba(10, 10, 20, 0.6);
+      padding: 6px 10px;
+      border-radius: 8px;
+    }
+    #apiDoc {
+      position: fixed;
+      right: 12px;
+      top: 12px;
+      z-index: 10;
+      max-width: 300px;
+      background: rgba(10, 10, 20, 0.9);
+      color: rgba(255, 255, 255, 0.9);
+      border: 1px solid rgba(91, 238, 255, 0.35);
+      border-radius: 12px;
+      padding: 12px 14px;
+      font-size: 11px;
+      line-height: 1.5;
+    }
+    #apiDoc h1 { font-size: 14px; color: #5beeff; margin-bottom: 8px; }
+    #apiDoc code { color: #a8e6f0; font-size: 10px; white-space: pre-wrap; display: block; }
+    #apiDoc button {
+      margin-top: 8px;
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      color: #fff;
+      border-radius: 8px;
+      padding: 4px 10px;
+      cursor: pointer;
+      font-size: 10px;
+    }
+    #apiDoc.collapsed { opacity: 0.35; }
+    #apiDoc.collapsed pre { display: none; }
+    /* Optional camera strip — bỏ khi UI mới có camera riêng */
+    #cameraBox {
+      position: fixed;
+      right: 12px;
+      bottom: 12px;
+      width: 160px;
+      height: 120px;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid rgba(91, 238, 255, 0.4);
+      z-index: 4;
+      background: #000;
+    }
+    #cameraBox video, #cameraBox canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+  </style>
+</head>
+<body data-state="PLAYING" data-theme="echoCave">
+  <div id="stage">
+    <canvas id="gameCanvas" aria-label="MiCatcher gameplay"></canvas>
+  </div>
+
+  <div id="hud">
+    <span id="hudScore">Score: 0</span>
+    <span id="hudBest">Best: 0</span>
+    <span id="hudState">PLAYING</span>
+  </div>
+
+  <div id="cameraBox">
+    <video id="cameraVideo" playsinline muted autoplay></video>
+    <canvas id="skeletonCanvas"></canvas>
+  </div>
+
+  <aside id="apiDoc">
+    <h1>MiCatcher Gameplay API</h1>
+    <p>Chỉ <strong>canvas + physics + vẽ</strong>. Gắn UI/HTML/CSS của bạn bên ngoài.</p>
+    <pre><code>await Game.init(canvas, {
+  onStateChange(state) {
+    // ATTRACT | TUTORIAL | PLAYING | OVER | WIN
+  },
+});
+Game.setTheme("echoCave");
+Game.setFinalStyle("trophy");
+Game.start();
+// loop: Game.update(dt); Game.render();
+// nhảy: Game.launchWithPower(0–100);
+// charge: Game.chargeStart() / Game.chargeRelease();</code></pre>
+    <p><kbd>Space</kbd> giữ/thả · <kbd>R</kbd> restart · Camera tùy chọn</p>
+    <button type="button" id="toggleDoc">Ẩn hướng dẫn</button>
+  </aside>
+
+  <script src="micatcher-tracking.js"></script>
+  <script src="micatcher-engine.js"></script>
+  <script>
+  /**
+   * Demo bootstrap — xóa hoặc thay khi adapt sang UI mới.
+   * UI kiosk đầy đủ: ../UI/Jump Jump Micatcher.html + app.js
+   */
+  (function demoBootstrap() {
+    const canvas = document.getElementById("gameCanvas");
+    const hudScore = document.getElementById("hudScore");
+    const hudBest = document.getElementById("hudBest");
+    const hudState = document.getElementById("hudState");
+    const video = document.getElementById("cameraVideo");
+    const skeleton = document.getElementById("skeletonCanvas");
+
+    let tracking = null;
+    let spaceDown = false;
+
+    function syncHud() {
+      hudScore.textContent = "Score: " + Game.score;
+      hudBest.textContent = "Best: " + Game.best;
+      hudState.textContent = Game.state;
+    }
+
+    Game.init(canvas, {
+      onStateChange(s) {
+        document.body.dataset.state = s;
+        syncHud();
+        if (s === "OVER") {
+          setTimeout(() => {
+            Game.reset();
+            Game.start();
+          }, 2000);
+        }
+      },
+    }).then(() => {
+      Game.setTheme("echoCave");
+      Game.setFinalStyle("trophy");
+      Game.start();
+      syncHud();
+
+      tracking = MicatcherTracking.create({
+        videoEl: video,
+        overlayEl: skeleton,
+        canJump: () => Game.state === "PLAYING",
+        onJumpPower(power) {
+          if (Game.state !== "PLAYING") return;
+          Game.launchWithPower(power);
+        },
+        onPowerPreview(power) {
+          if (Game.state !== "PLAYING" || !Game.player || Game.player.airborne) return;
+          Game.player.power = power;
+          Game.player.squash = Math.min(1, power / 100);
+        },
+      });
+      const box = video.parentElement;
+      const ro = new ResizeObserver(() => tracking.resizeOverlay());
+      ro.observe(box);
+      tracking.init().catch((err) => console.warn("Camera optional:", err));
+    });
+
+    window.addEventListener("keydown", (e) => {
+      if (e.code === "Space" && !spaceDown) {
+        spaceDown = true;
+        if (Game.state === "PLAYING") Game.chargeStart();
+      }
+      if (e.key === "r" || e.key === "R") {
+        Game.reset();
+        Game.start();
+        syncHud();
+      }
+    });
+    window.addEventListener("keyup", (e) => {
+      if (e.code !== "Space" || !spaceDown) return;
+      spaceDown = false;
+      if (Game.state === "PLAYING") Game.chargeRelease();
+    });
+
+    let last = performance.now();
+    function tick(now) {
+      const dt = Math.min(0.05, (now - last) / 1000);
+      last = now;
+      Game.update(dt);
+      Game.render();
+      if (Game.state === "PLAYING") syncHud();
+      requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+
+    document.getElementById("toggleDoc").addEventListener("click", () => {
+      document.getElementById("apiDoc").classList.toggle("collapsed");
+    });
+  })();
+  </script>
+</body>
+</html>
