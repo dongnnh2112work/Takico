@@ -109,7 +109,9 @@ Nếu engine cấp **giá trị lực/độ sâu nhún thật** (0–100), bạn
 | `short` | Lực quá nhẹ → dừng trước vạch | CHƯA TỚI VẠCH |
 | `timeout` | Hết 60s | HẾT GIỜ |
 
-Muốn ghi điểm/đẩy về server, móc thêm vào `onWin`/`onLose` trong `app.jsx`.
+Muốn ghi điểm/đẩy về server, móc thêm vào `onWin`/`onGameOver` trong `app.jsx`.
+
+**Mạng (lives):** mỗi lượt có `game.totalLives` (mặc định 3). Sai vạch / hết giờ trừ 1 mạng và thử lại **cùng chặng**; hết mạng mới sang màn Thua.
 
 ---
 
@@ -130,14 +132,14 @@ IDLE ──(chạm/Space)──▶ TUTORIAL ──(chạm/Space)──▶ PLAYIN
                          IDLE  ◀───────────────────── IDLE
 ```
 
-- `TOTAL_STAGES = 5` (đầu `app.jsx`) — đổi số chặng tại đây.
+- `assets/packs/<pack>/manifest.json` → `game.totalStages`, `game.totalLives`, `game.timeLimitSec`.
 - **Thanh DEV NAV** dưới đáy (`.dev-nav`) để nhảy nhanh giữa 5 màn khi review. **Khi lên kiosk thật, ẩn nó đi** (đặt `.dev-nav{display:none}` hoặc xoá block trong `app.jsx`).
 
 ---
 
 ## 5. Bảng tài nguyên (`assets/`)
 
-Khai báo tại `takico/assets.jsx` → `window.TAK.A`. Muốn **thay nhân vật/ảnh**, chỉ cần thay file trong `assets/` (giữ nguyên tên) hoặc sửa đường dẫn ở đây.
+Khai báo tại `assets/packs/<pack>/manifest.json`, nạp bởi `takico/assets.jsx` → `window.TAK.A`. Chọn pack: `takico/loadPack.js` hoặc `window.TAKICO_PACK = 'honda-2026'` trước khi nạp assets.
 
 | Khoá (`TAK.A.*`) | File | Dùng ở màn |
 |---|---|---|

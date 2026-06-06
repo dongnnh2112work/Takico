@@ -46,6 +46,12 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+.boot-loading {
+  position: fixed; inset: 0; display: grid; place-items: center;
+  background: #0d0d12; color: #fff; font-family: var(--f-body, sans-serif);
+  font-weight: 700; font-size: 22px; letter-spacing: 0.08em;
+}
+
 /* ── Kiosk stage scaling ───────────────────────────────────── */
 .stage-viewport {
   position: fixed;
@@ -126,23 +132,40 @@ body {
   position: absolute; inset: 0; width: 100%; height: 100%;
   object-fit: cover; object-position: center;
 }
-/* concentric "tap me" ripples emanating from the BẮT ĐẦU button edge */
+/* Ripple đồng tâm nút BẮT ĐẦU trên artwork idle (1920×1080) */
 .idle-start-pulse {
-  position: absolute; left: 49.3%; top: 62.2%;
-  width: 410px; height: 410px; transform: translate(-50%, -50%);
-  border-radius: 50%; pointer-events: none; z-index: 3;
+  position: absolute;
+  left: 50%;
+  top: 61.8%;
+  width: 22.5vw;
+  max-width: 432px;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  transform-origin: center center;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 3;
 }
 .idle-start-pulse::before,
 .idle-start-pulse::after {
-  content: ""; position: absolute; inset: 0; border-radius: 50%;
-  border: 5px solid rgba(255,255,255,0.9);
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  transform: translate(-50%, -50%);
+  transform-origin: center center;
+  border-radius: 50%;
+  border: 5px solid rgba(255, 255, 255, 0.9);
   animation: idle-ripple 1.9s ease-out infinite;
 }
 .idle-start-pulse::after { animation-delay: 0.95s; }
 @keyframes idle-ripple {
-  0%   { transform: scale(0.97); opacity: 0; }
+  0%   { transform: translate(-50%, -50%) scale(0.88); opacity: 0; }
   18%  { opacity: 0.85; }
-  100% { transform: scale(1.42); opacity: 0; }
+  100% { transform: translate(-50%, -50%) scale(1.38); opacity: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
   .idle-start-pulse::before, .idle-start-pulse::after { animation: none; }

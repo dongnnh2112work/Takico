@@ -1,26 +1,30 @@
-/* ĐI CÙNG TAKICO — asset URLs + white-background knockout (runtime) */
+/* ĐI CÙNG TAKICO — load asset pack manifest + white-background knockout */
+
 (function () {
-  // raw/ files have NFD-decomposed Vietnamese names → decompose at runtime so the URL matches disk
   const norm = (p) => encodeURI(p.normalize('NFD'));
 
-  const A = {
-    logo:   'assets/logo-takico.png',
-    mascot: 'assets/mascot-ride.png',
-    mascotSide: 'assets/mascot-ride-side.png',
-    idleBg: 'assets/idle-screen.jpg',
-    sceneBg: 'assets/scene-bg.png',
-    sceneBg2: 'assets/scene-bg2.png',
-    sceneBg3: 'assets/scene-bg3.png',
-    sceneBg5: 'assets/scene-bg5.png',
-    sceneBg6: 'assets/scene-bg6.png',
-    kv26:   'assets/keyvisual-26.png',
-    glb:    'assets/character.glb',
-    police: norm('raw/Chú công an.png'),
-    light:  norm('raw/Đèn giao thông.png'),
-    dealer: norm('raw/Đại lí Takico.jpg'),
-  };
+  function flatAssets(manifest) {
+    const a = manifest.assets;
+    const props = a.props || {};
+    return {
+      logo: a.logo,
+      mascot: a.mascotFront,
+      mascotSide: a.mascotSide,
+      idleBg: a.idleBackground,
+      glb: a.characterGlb,
+      kv26: a.keyvisual,
+      stageBgs: a.stageBackgrounds || [],
+      sceneBg: a.stageBackgrounds?.[0],
+      sceneBg2: a.stageBackgrounds?.[1],
+      sceneBg3: a.stageBackgrounds?.[2],
+      sceneBg5: a.stageBackgrounds?.[3],
+      sceneBg6: a.stageBackgrounds?.[4],
+      police: norm(props.police),
+      light: norm(props.trafficLight),
+      dealer: norm(props.dealer),
+    };
+  }
 
-  // Flood-fill near-white background → transparent (preserves interior whites)
   function knockoutWhite(url, thr) {
     thr = thr || 236;
     return new Promise((res) => {
@@ -60,7 +64,6 @@
     });
   }
 
-  // React hook: returns original url, then swaps to knocked-out version when ready
   function useKnockout(url, thr) {
     const [out, setOut] = React.useState(url);
     React.useEffect(() => {
@@ -71,5 +74,59 @@
     return out;
   }
 
-  window.TAK = { A, norm, knockoutWhite, useKnockout };
+  window.TAK = {
+    ready: false,
+    packId: null,
+    manifest: null,
+    GAME: { totalStages: 5, totalLives: 3, timeLimitSec: 60 },
+    A: {},
+    norm,
+    knockoutWhite,
+    useKnockout,
+  };
+
+  async function init() {
+    const packId = window.TAKICO_PACK || 'honda-2026';
+    const url = `assets/packs/${packId}/manifest.json`;
+    let manifest;
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(res.statusText);
+      manifest = await res.json();
+    } catch (e) {
+      console.error('[TAK] manifest load failed:', url, e);
+      manifest = {
+        id: packId,
+        game: { totalStages: 5, totalLives: 3, timeLimitSec: 60 },
+        assets: {
+          logo: 'assets/logo-takico.png',
+          mascotFront: 'assets/mascot-ride.png',
+          mascotSide: 'assets/mascot-ride-side.png',
+          idleBackground: 'assets/idle-screen.jpg',
+          characterGlb: 'assets/character.glb',
+          keyvisual: 'assets/keyvisual-26.png',
+          stageBackgrounds: [
+            'assets/scene-bg.png',
+            'assets/scene-bg2.png',
+            'assets/scene-bg3.png',
+            'assets/scene-bg5.png',
+            'assets/scene-bg6.png',
+          ],
+          props: {
+            police: 'raw/Chú công an.png',
+            trafficLight: 'raw/Đèn giao thông.png',
+            dealer: 'raw/Đại lí Takico.jpg',
+          },
+        },
+      };
+    }
+    window.TAK.packId = manifest.id || packId;
+    window.TAK.manifest = manifest;
+    window.TAK.GAME = { ...window.TAK.GAME, ...manifest.game };
+    window.TAK.A = flatAssets(manifest);
+    window.TAK.ready = true;
+    window.dispatchEvent(new Event('tak-ready'));
+  }
+
+  init();
 })();

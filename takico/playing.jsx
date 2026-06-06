@@ -7,13 +7,23 @@ const LINE_X = 60;
 const START_X = 15;
 
 const PlayingScreen = forwardRef(function PlayingScreen(props, ref) {
-  const { totalStages, policeSrc, lightSrc, dealerSrc, onWin, onLose } = props;
+  const {
+    totalStages,
+    totalLives = 3,
+    timeLimitSec = 60,
+    frozen = false,
+    policeSrc,
+    lightSrc,
+    onWin,
+    onGameOver,
+  } = props;
 
   const [stage, setStage] = useState(1);          // 1-indexed current chặng
   const [phase, setPhase] = useState('aim');       // aim | charging | flying | result
   const [power, setPower] = useState(0);
   const [mascotX, setMascotX] = useState(START_X);
-  const [timeLeft, setTimeLeft] = useState(60);
+  const [timeLeft, setTimeLeft] = useState(timeLimitSec);
+  const [lives, setLives] = useState(totalLives);
   const [toast, setToast] = useState(null);        // {cls,text}
   const [whistle, setWhistle] = useState(false);
   const [camPose, setCamPose] = useState('ready'); // ready|charging|go
@@ -26,9 +36,9 @@ const PlayingScreen = forwardRef(function PlayingScreen(props, ref) {
   const trackingRef = useRef(null);
   const inputModeRef = useRef('keyboard'); // keyboard | camera
 
-  // per-stage backgrounds — the scene the rider arrives at each chặng
-  // per-stage backgrounds (1 distinct scene per chặng; stage 5 = HEAD Tân Kiều)
-  const BGS = [TAK.A.sceneBg, TAK.A.sceneBg2, TAK.A.sceneBg3, TAK.A.sceneBg5, TAK.A.sceneBg6];
+  const BGS = TAK.A.stageBgs?.length ? TAK.A.stageBgs : [
+    TAK.A.sceneBg, TAK.A.sceneBg2, TAK.A.sceneBg3, TAK.A.sceneBg5, TAK.A.sceneBg6,
+  ];
   const curBg  = BGS[(stage - 1) % BGS.length];
   const nextBg = BGS[stage % BGS.length];
 
@@ -37,7 +47,10 @@ const PlayingScreen = forwardRef(function PlayingScreen(props, ref) {
   const powerRef = useRef(0);
   const phaseRef = useRef('aim');
   const stageRef = useRef(1);
-  phaseRef.current = phase; stageRef.current = stage;
+  const livesRef = useRef(totalLives);
+  const timerIdRef = useRef(0);
+  const keyboardChargeRef = useRef(false);
+  phaseRef.current = phase; stageRef.current = stage; livesRef.current = lives;
 
   const isFinal = stage >= totalStages;
 
@@ -57,19 +70,36 @@ const PlayingScreen = forwardRef(function PlayingScreen(props, ref) {
   }
 
   function press(fromTracking) {
+    if (frozen) return;
+
+    // Space / chạm: luôn chạy thanh dao động (kể cả camera đã vào charging trước)
+    if (!fromTracking) {
+      if (phaseRef.current !== 'aim' && phaseRef.current !== 'charging') return;
+      if (phaseRef.current === 'aim') {
+        setPhase('charging'); phaseRef.current = 'charging';
+        setCamPose('charging');
+        powerRef.current = 0; dir.current = 1;
+        setPower(0);
+      }
+      keyboardChargeRef.current = true;
+      clearInterval(raf.current);
+      tick();
+      raf.current = setInterval(tick, 24);
+      return;
+    }
+
     if (phaseRef.current !== 'aim') return;
     setPhase('charging'); phaseRef.current = 'charging';
     setCamPose('charging');
     powerRef.current = 0; dir.current = 1;
+    setPower(0);
     clearInterval(raf.current);
-    // Camera: lực từ độ sâu nhún thật (onPowerPreview). Keyboard: thanh dao động.
-    if (!fromTracking && inputModeRef.current !== 'camera') {
-      raf.current = setInterval(tick, 24);
-    }
   }
 
   function release(forcedPower) {
+    if (frozen) return;
     if (phaseRef.current !== 'charging') return;
+    keyboardChargeRef.current = false;
     clearInterval(raf.current);
     const p = forcedPower != null ? forcedPower : powerRef.current;
     setPhase('flying'); phaseRef.current = 'flying';
@@ -83,6 +113,53 @@ const PlayingScreen = forwardRef(function PlayingScreen(props, ref) {
 
     setMascotX(landX);
     setTimeout(() => resolve(outcome), 1180);
+  }
+
+  function startCountdown() {
+    clearInterval(timerIdRef.current);
+    timerIdRef.current = setInterval(() => {
+      setTimeLeft((t) => {
+        if (phaseRef.current === 'result') return t;
+        if (t <= 1) {
+          clearInterval(timerIdRef.current);
+          setPhase('result'); phaseRef.current = 'result';
+          loseLife('timeout', 'HẾT GIỜ!');
+          return 0;
+        }
+        return t - 1;
+      });
+    }, 1000);
+  }
+
+  function resetAttempt() {
+    clearInterval(raf.current);
+    keyboardChargeRef.current = false;
+    setWhistle(false);
+    setToast(null);
+    setBgScroll(false);
+    setSnap(false);
+    setMascotX(START_X);
+    setPower(0); powerRef.current = 0;
+    setCamPose('ready');
+    setPhase('aim'); phaseRef.current = 'aim';
+    setTimeLeft(timeLimitSec);
+    startCountdown();
+  }
+
+  function loseLife(reason, failToast) {
+    const next = livesRef.current - 1;
+    livesRef.current = next;
+    setLives(next);
+    if (next <= 0) {
+      const delay = reason === 'redlight' ? 1500 : 1400;
+      setTimeout(() => onGameOver(reason, stageRef.current - 1), delay);
+      return;
+    }
+    setToast({ cls: 'bad', text: failToast });
+    setTimeout(() => {
+      setToast({ cls: 'warn', text: `CÒN ${next} MẠNG — THỬ LẠI CHẶNG ${stageRef.current}` });
+      setTimeout(resetAttempt, 1100);
+    }, 900);
   }
 
   function resolve(outcome) {
@@ -114,11 +191,9 @@ const PlayingScreen = forwardRef(function PlayingScreen(props, ref) {
       }, 850 + 1350 + 80);
     } else if (outcome === 'over') {
       setWhistle(true);
-      setToast({ cls: 'bad', text: 'VƯỢT ĐÈN ĐỎ!' });
-      setTimeout(() => onLose('redlight', stageRef.current - 1), 1500);
+      loseLife('redlight', 'VƯỢT ĐÈN ĐỎ!');
     } else {
-      setToast({ cls: 'bad', text: 'CHƯA TỚI VẠCH' });
-      setTimeout(() => onLose('short', stageRef.current - 1), 1400);
+      loseLife('short', 'CHƯA TỚI VẠCH');
     }
   }
 
@@ -138,7 +213,10 @@ const PlayingScreen = forwardRef(function PlayingScreen(props, ref) {
       onTrackingMode(mode) {
         inputModeRef.current = mode;
         setCamLive(mode === 'camera');
-        if (mode === 'camera') tracking.resetCalibration();
+        if (mode === 'camera') {
+          tracking.resetCalibration();
+          tracking.resetPlayerLock?.();
+        }
       },
       onPoseState(pose) {
         if (phaseRef.current === 'flying' || phaseRef.current === 'result') return;
@@ -150,6 +228,14 @@ const PlayingScreen = forwardRef(function PlayingScreen(props, ref) {
         if (phaseRef.current === 'flying' || phaseRef.current === 'result') return;
         if (power > 0 && phaseRef.current === 'aim') press(true);
         if (phaseRef.current === 'charging') {
+          // Space đang lái thanh → camera chỉ bổ sung lực cao hơn, không ghi đè về 0
+          if (keyboardChargeRef.current) {
+            if (power > powerRef.current) {
+              powerRef.current = power;
+              setPower(power);
+            }
+            return;
+          }
           powerRef.current = power;
           setPower(power);
         }
@@ -168,26 +254,29 @@ const PlayingScreen = forwardRef(function PlayingScreen(props, ref) {
     const ro = box ? new ResizeObserver(() => tracking.resizeOverlay()) : null;
     if (ro && box) ro.observe(box);
 
-    tracking.init().catch(() => {});
+    const onVideoReady = () => tracking.resizeOverlay();
+    video.addEventListener('loadedmetadata', onVideoReady);
+    tracking.init().then(() => tracking.resizeOverlay()).catch(() => {});
 
     return () => {
+      video.removeEventListener('loadedmetadata', onVideoReady);
       tracking.cleanup();
       ro?.disconnect();
       trackingRef.current = null;
     };
   }, []);
 
-  // ── countdown ──
   useEffect(() => {
-    const id = setInterval(() => {
-      setTimeLeft((t) => {
-        if (phaseRef.current === 'result') return t;
-        if (t <= 1) { clearInterval(id); onLose('timeout', stageRef.current - 1); return 0; }
-        return t - 1;
-      });
-    }, 1000);
-    return () => { clearInterval(id); clearInterval(raf.current); };
-  }, []);
+    if (!frozen) startCountdown();
+    else {
+      clearInterval(timerIdRef.current);
+      clearInterval(raf.current);
+    }
+    return () => {
+      clearInterval(timerIdRef.current);
+      clearInterval(raf.current);
+    };
+  }, [frozen]);
 
   const mins = Math.floor(timeLeft / 60), secs = String(timeLeft % 60).padStart(2, '0');
   const flying = phase === 'flying' || phase === 'result';
@@ -247,6 +336,21 @@ const PlayingScreen = forwardRef(function PlayingScreen(props, ref) {
             </div>
           </div>
         </div>
+        <div className="hud-mid">
+          <div className="hud-chip lives-chip">
+            <div className="ic lives">
+              <svg width="30" height="30" viewBox="0 0 24 24" fill="none"><path d="M12 21s-7-4.6-7-10a4 4 0 0 1 7-2 4 4 0 0 1 7 2c0 5.4-7 10-7 10z" fill="#fff"/></svg>
+            </div>
+            <div>
+              <div className="lbl">Mạng</div>
+              <div className="lives-row" aria-label={`${lives} mạng còn lại`}>
+                {Array.from({ length: totalLives }).map((_, i) => (
+                  <i key={i} className={i < lives ? 'on' : 'off'}></i>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
         <div className={'hud-chip' + (timeLeft <= 10 ? ' warn' : '')}>
           <div className="ic time">
             <svg width="30" height="30" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.5" stroke="#fff" strokeWidth="2.2"/><path d="M12 7.5V12l3 2" stroke="#fff" strokeWidth="2.2" strokeLinecap="round"/></svg>
@@ -291,7 +395,7 @@ const PlayingScreen = forwardRef(function PlayingScreen(props, ref) {
             ? <>Thả ra khi lực vào <b>vùng xanh</b> để dừng đúng vạch</>
             : phase === 'aim'
               ? camLive
-                ? <>Nhún xuống lấy đà — <b>đứng lên</b> để phóng xe</>
+                ? <>Nhún xuống lấy đà — <b>đứng lên</b> hoặc thả <b>SPACE</b> để phóng</>
                 : <>Giữ <b>SPACE</b> / chạm &amp; giữ để lấy đà — thả ra để phóng</>
               : <>Takico đang chạy…</>}
         </div>

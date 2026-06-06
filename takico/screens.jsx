@@ -45,7 +45,7 @@ function TutorialScreen({ onStart }) {
           ))}
         </div>
         <div className="tut-foot">
-          Mục tiêu: dừng <b>đúng vạch đèn đỏ</b> ở mỗi chặng — chạm/nhấn <b>SPACE</b> để bắt đầu
+          Mục tiêu: dừng <b>đúng vạch đèn đỏ</b> ở mỗi chặng — bạn có <b>{TAK.GAME.totalLives} mạng</b> mỗi lượt · chạm/nhấn <b>SPACE</b> để bắt đầu
         </div>
       </div>
     </div>

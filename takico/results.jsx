@@ -1,5 +1,11 @@
 /* ĐI CÙNG TAKICO — Lose / Win result screens + confetti */
 
+function ResultTitle({ text, tone }) {
+  return (
+    <h2 className={'result-title' + (tone ? ' ' + tone : '')}>{text}</h2>
+  );
+}
+
 function Confetti() {
   const colors = ['#E4002B', '#2A3990', '#FFD23E', '#FFFFFF', '#1CA64C', '#FF3F5E'];
   const pieces = Array.from({ length: 70 }).map((_, i) => ({
@@ -25,7 +31,7 @@ function Confetti() {
 }
 
 /* ── 04 · LOSE ── */
-function LoseScreen({ reason, stagesCleared, totalStages, policeSrc, onRetry, onHome }) {
+function LoseScreen({ reason, stagesCleared, totalStages, totalLives, policeSrc, onRetry, onHome }) {
   const copy = {
     redlight: { title: 'VƯỢT ĐÈN ĐỎ!', tag: 'Chưa an toàn rồi', desc: <>Takico lấy đà quá mạnh nên <b>vượt qua vạch khi đèn đỏ</b> — chú công an đã tuýt còi. Nhớ dừng đúng vạch để đi tiếp nhé!</> },
     short:    { title: 'CHƯA TỚI VẠCH', tag: 'Gần được rồi', desc: <>Lực nhún hơi nhẹ nên xe <b>dừng trước vạch</b>. Thử lấy đà mạnh hơn một chút để dừng đúng vạch!</> },
@@ -33,23 +39,35 @@ function LoseScreen({ reason, stagesCleared, totalStages, policeSrc, onRetry, on
   }[reason] || { title: 'KẾT THÚC LƯỢT', tag: '', desc: '' };
 
   return (
-    <div className="overlay-screen">
+    <div className="overlay-screen overlay-lose">
       <div className="scrim"></div>
       {reason === 'redlight' && (
-        <img src={policeSrc} alt="" style={{ position: 'absolute', right: '8%', bottom: 0, height: 620, zIndex: 1, filter: 'drop-shadow(0 20px 30px rgba(0,0,0,0.4))' }} />
+        <img className="result-deco-police" src={policeSrc} alt="" />
       )}
-      <div className="result-card">
-        <div className="result-emblem bad">🚦</div>
-        <div className="result-tag">{copy.tag}</div>
-        <div className="result-title bad">{copy.title}</div>
-        <div className="result-desc">{copy.desc}</div>
-        <div className="result-stat">
-          <div className="lbl">Chặng đạt được</div>
-          <div className="num">{stagesCleared}<small>/{totalStages}</small></div>
+      <div className="result-popup result-popup--lose">
+        <header className="result-popup__head">
+          <div className="result-emblem bad">🚦</div>
+          <div className="result-popup__titles">
+            <div className="result-tag">{copy.tag}</div>
+            <ResultTitle text={copy.title} tone="bad" />
+          </div>
+        </header>
+        <p className="result-desc">{copy.desc}</p>
+        <div className="result-stats-row">
+          <div className="result-stat">
+            <div className="lbl">Chặng đạt được</div>
+            <div className="num">{stagesCleared}<small>/{totalStages}</small></div>
+          </div>
+          {totalLives != null && (
+            <div className="result-stat">
+              <div className="lbl">Đã dùng hết</div>
+              <div className="num">{totalLives}<small> mạng</small></div>
+            </div>
+          )}
         </div>
         <div className="result-actions">
-          <button className="btn btn-lg btn-primary" onClick={onRetry}>↻ CHƠI LẠI</button>
-          <button className="btn btn-lg btn-ghost" onClick={onHome}>VỀ MÀN CHÍNH</button>
+          <button type="button" className="btn btn-lg btn-primary" onClick={onRetry}>↻ CHƠI LẠI</button>
+          <button type="button" className="btn btn-lg btn-ghost" onClick={onHome}>VỀ MÀN CHÍNH</button>
         </div>
       </div>
     </div>
@@ -57,41 +75,31 @@ function LoseScreen({ reason, stagesCleared, totalStages, policeSrc, onRetry, on
 }
 
 /* ── 05 · WIN ── */
-function WinScreen({ totalStages, dealerSrc, onClaim, onHome }) {
+function WinScreen({ totalStages, onHome }) {
   return (
-    <div className="overlay-screen">
-      <div className="scrim" style={{ background: 'rgba(20,12,24,0.42)' }}></div>
+    <div className="overlay-screen overlay-win">
+      <div className="scrim scrim--win"></div>
       <Confetti />
-      <img src={dealerSrc} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: 0.18, zIndex: 1 }} />
-      <div className="result-card win">
-        <div className="win-mascot"><Mascot3D orbit="15deg 80deg 100%" fov="32deg" /></div>
-        <div className="result-tag">Chúc mừng nhà vô địch</div>
-        <div className="result-title win">VỀ ĐÍCH AN TOÀN!</div>
-        <div className="result-desc">
+      <div className="result-popup result-popup--win">
+        <header className="result-popup__head result-popup__head--win">
+          <div className="win-mascot"><Mascot3D orbit="15deg 80deg 100%" fov="32deg" /></div>
+          <div className="result-popup__titles">
+            <div className="result-tag">Chúc mừng nhà vô địch</div>
+            <ResultTitle text="VỀ ĐÍCH AN TOÀN!" tone="win" />
+          </div>
+        </header>
+        <p className="result-desc">
           Takico đã đồng hành cùng bạn vượt <b>{totalStages} chặng</b> và về đến <b>HEAD Tân Kiều</b> an toàn.
           <br />“Cùng Takico đồng hành trên mọi nẻo đường.”
+        </p>
+        <div className="result-notice" role="status">
+          <span className="result-notice__icon" aria-hidden="true">✓</span>
+          <p>
+            Bạn đã hoàn thành thử thách an toàn giao thông. Nhân viên sự kiện sẽ hướng dẫn bạn nhận phần quà tại quầy HEAD Tân Kiều.
+          </p>
         </div>
-        <div className="reward-box">
-          <div className="qr">
-            <svg width="78" height="78" viewBox="0 0 78 78">
-              <rect width="78" height="78" fill="#fff" />
-              <g fill="#211E2B">
-                <rect x="6" y="6" width="22" height="22" /><rect x="12" y="12" width="10" height="10" fill="#fff" />
-                <rect x="50" y="6" width="22" height="22" /><rect x="56" y="12" width="10" height="10" fill="#fff" />
-                <rect x="6" y="50" width="22" height="22" /><rect x="12" y="56" width="10" height="10" fill="#fff" />
-                <rect x="36" y="6" width="8" height="8" /><rect x="36" y="22" width="8" height="8" /><rect x="36" y="38" width="8" height="8" />
-                <rect x="50" y="38" width="8" height="8" /><rect x="64" y="50" width="8" height="8" /><rect x="50" y="64" width="8" height="8" /><rect x="64" y="36" width="8" height="8" />
-              </g>
-            </svg>
-          </div>
-          <div>
-            <div className="rt">🎁 Mang màn hình này đến quầy để nhận quà</div>
-            <div className="rd">Nhân viên HEAD Tân Kiều sẽ quét mã &amp; trao phần quà an toàn giao thông của bạn.</div>
-          </div>
-        </div>
-        <div className="result-actions">
-          <button className="btn btn-lg btn-primary" onClick={onClaim}>🎁 NHẬN QUÀ</button>
-          <button className="btn btn-lg btn-ghost" onClick={onHome}>VỀ MÀN CHÍNH</button>
+        <div className="result-actions result-actions--single">
+          <button type="button" className="btn btn-lg btn-primary" onClick={onHome}>VỀ MÀN CHÍNH</button>
         </div>
       </div>
     </div>
