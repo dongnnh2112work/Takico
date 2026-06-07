@@ -5,6 +5,9 @@ const { useState, useEffect, useRef, forwardRef, useImperativeHandle } = React;
 // stop line sits at this % across the lane; mascot starts here
 const LINE_X = 60;
 const START_X = 15;
+const OK_BLACK_IN = 450;   // ms chờ trước khi fade đen
+const OK_BLACK_HOLD = 550; // ms giữ màn đen
+const OK_DRIVE_AT = OK_BLACK_IN + OK_BLACK_HOLD;
 
 const PlayingScreen = forwardRef(function PlayingScreen(props, ref) {
   const {
@@ -12,7 +15,6 @@ const PlayingScreen = forwardRef(function PlayingScreen(props, ref) {
     totalLives = 3,
     timeLimitSec = 60,
     frozen = false,
-    policeSrc,
     lightSrc,
     onWin,
     onGameOver,
@@ -28,7 +30,8 @@ const PlayingScreen = forwardRef(function PlayingScreen(props, ref) {
   const [whistle, setWhistle] = useState(false);
   const [camPose, setCamPose] = useState('ready'); // ready|charging|go
   const [camLive, setCamLive] = useState(false);   // true when MediaPipe feed active
-  const [bgScroll, setBgScroll] = useState(false); // panning to next scene
+  const [signal, setSignal] = useState('red');     // red | green — đèn giao thông trong nền round
+  const [cutBlack, setCutBlack] = useState(false); // fade đen trước khi đèn xanh + Takico chạy
   const [snap, setSnap] = useState(false);         // teleport (no transition)
 
   const videoRef = useRef(null);
@@ -36,11 +39,12 @@ const PlayingScreen = forwardRef(function PlayingScreen(props, ref) {
   const trackingRef = useRef(null);
   const inputModeRef = useRef('keyboard'); // keyboard | camera
 
-  const BGS = TAK.A.stageBgs?.length ? TAK.A.stageBgs : [
-    TAK.A.sceneBg, TAK.A.sceneBg2, TAK.A.sceneBg3, TAK.A.sceneBg5, TAK.A.sceneBg6,
-  ];
-  const curBg  = BGS[(stage - 1) % BGS.length];
-  const nextBg = BGS[stage % BGS.length];
+  const roundBgs = TAK.A.roundBgs?.length ? TAK.A.roundBgs : TAK.A.stageBgs.map((bg, i) => ({
+    red: bg,
+    green: bg,
+  }));
+  const round = roundBgs[(stage - 1) % roundBgs.length] || roundBgs[0];
+  const curBg = signal === 'green' ? round.green : round.red;
 
   const raf = useRef(0);
   const dir = useRef(1);
@@ -50,14 +54,15 @@ const PlayingScreen = forwardRef(function PlayingScreen(props, ref) {
   const livesRef = useRef(totalLives);
   const timerIdRef = useRef(0);
   const keyboardChargeRef = useRef(false);
+  const cameraPowerSmoothRef = useRef(0);
   phaseRef.current = phase; stageRef.current = stage; livesRef.current = lives;
 
   const isFinal = stage >= totalStages;
 
-  // success window varies a touch per stage
+  // vùng xanh rộng hơn, lệch nhẹ theo chặng — dễ dừng đúng vạch
   const band = (() => {
-    const lo = 60 - (stage - 1) * 1.5;
-    return { lo, hi: lo + 16 };
+    const lo = 57 - (stage - 1) * 1.0;
+    return { lo, hi: lo + 22 };
   })();
 
   // ── charging loop (setInterval so it survives focus changes on kiosk) ──
@@ -79,6 +84,7 @@ const PlayingScreen = forwardRef(function PlayingScreen(props, ref) {
         setPhase('charging'); phaseRef.current = 'charging';
         setCamPose('charging');
         powerRef.current = 0; dir.current = 1;
+        cameraPowerSmoothRef.current = 0;
         setPower(0);
       }
       keyboardChargeRef.current = true;
@@ -91,7 +97,8 @@ const PlayingScreen = forwardRef(function PlayingScreen(props, ref) {
     if (phaseRef.current !== 'aim') return;
     setPhase('charging'); phaseRef.current = 'charging';
     setCamPose('charging');
-    powerRef.current = 0; dir.current = 1;
+    powerRef.current = 0;
+    cameraPowerSmoothRef.current = 0;
     setPower(0);
     clearInterval(raf.current);
   }
@@ -136,7 +143,8 @@ const PlayingScreen = forwardRef(function PlayingScreen(props, ref) {
     keyboardChargeRef.current = false;
     setWhistle(false);
     setToast(null);
-    setBgScroll(false);
+    setCutBlack(false);
+    setSignal('red');
     setSnap(false);
     setMascotX(START_X);
     setPower(0); powerRef.current = 0;
@@ -165,30 +173,36 @@ const PlayingScreen = forwardRef(function PlayingScreen(props, ref) {
   function resolve(outcome) {
     setPhase('result'); phaseRef.current = 'result';
     if (outcome === 'ok') {
-      if (isFinal) { setToast({ cls: 'ok', text: 'VỀ ĐÍCH! 🎉' }); setTimeout(() => onWin(totalStages), 900); return; }
       setToast({ cls: 'ok', text: 'DỪNG CHUẨN! 👏' });
-      // 1) green light → Takico rides on while the scene pans to the next background
+      // 1) fade đen — vẫn giữ nền đèn đỏ, Takico đứng tại vạch
+      setTimeout(() => setCutBlack(true), OK_BLACK_IN);
+      // 2) bật đèn xanh rồi Takico mới chạy tiếp
       setTimeout(() => {
-        setToast(null);
+        setSignal('green');
+        setCutBlack(false);
+        setToast(isFinal ? { cls: 'ok', text: 'VỀ ĐÍCH! 🎉' } : null);
         setCamPose('go');
-        setMascotX(122);     // ride off the right edge
-        setBgScroll(true);   // pan backdrop to the next scene
-      }, 850);
-      // 2) once the next scene is in view, drop the rider back to the start (no slide)
+        setMascotX(122);
+      }, OK_DRIVE_AT);
+      if (isFinal) {
+        setTimeout(() => onWin(totalStages), OK_DRIVE_AT + 1200);
+        return;
+      }
+      // 3) sang round kế — nền đèn đỏ round mới
       setTimeout(() => {
         setSnap(true);
-        setStage((s) => s + 1);   // curBg becomes the scene now showing
-        setBgScroll(false);       // track snaps back to 0 (no transition) — no visible jump
-        setMascotX(-24);          // park off-screen left
+        setStage((s) => s + 1);
+        setSignal('red');
+        setMascotX(-24);
         setPower(0); powerRef.current = 0;
-      }, 850 + 1350);
-      // 3) ride in from the left and begin the next chặng
+      }, OK_DRIVE_AT + 1350);
+      // 4) ride in from the left and begin the next chặng
       setTimeout(() => {
         setSnap(false);
         setMascotX(START_X);
         setCamPose('ready');
         setPhase('aim'); phaseRef.current = 'aim';
-      }, 850 + 1350 + 80);
+      }, OK_DRIVE_AT + 1350 + 80);
     } else if (outcome === 'over') {
       setWhistle(true);
       loseLife('redlight', 'VƯỢT ĐÈN ĐỎ!');
@@ -228,7 +242,6 @@ const PlayingScreen = forwardRef(function PlayingScreen(props, ref) {
         if (phaseRef.current === 'flying' || phaseRef.current === 'result') return;
         if (power > 0 && phaseRef.current === 'aim') press(true);
         if (phaseRef.current === 'charging') {
-          // Space đang lái thanh → camera chỉ bổ sung lực cao hơn, không ghi đè về 0
           if (keyboardChargeRef.current) {
             if (power > powerRef.current) {
               powerRef.current = power;
@@ -236,8 +249,12 @@ const PlayingScreen = forwardRef(function PlayingScreen(props, ref) {
             }
             return;
           }
-          powerRef.current = power;
-          setPower(power);
+          // Camera: chỉ tăng, làm mượt — không dao động lên xuống
+          const target = Math.max(powerRef.current, power);
+          cameraPowerSmoothRef.current += (target - cameraPowerSmoothRef.current) * 0.28;
+          const next = Math.round(Math.max(powerRef.current, cameraPowerSmoothRef.current));
+          powerRef.current = next;
+          setPower(next);
         }
       },
       onJumpPower(power) {
@@ -283,28 +300,21 @@ const PlayingScreen = forwardRef(function PlayingScreen(props, ref) {
 
   return (
     <div className="play-world">
-      <div className={'play-bg-track' + (bgScroll ? ' scroll' : '')}>
-        <div className="play-bg" style={{ backgroundImage: `url("${curBg}")` }}></div>
-        <div className="play-bg" style={{ backgroundImage: `url("${nextBg}")` }}></div>
-      </div>
+      <div
+        className={'play-bg-single' + (signal === 'green' ? ' signal-green' : ' signal-red')}
+        style={{ backgroundImage: `url("${curBg}")` }}
+        aria-hidden="true"
+      />
+      <div className={'play-cut-black' + (cutBlack ? ' on' : '')} aria-hidden="true" />
 
       {/* ── lane scene ── */}
       <div className="lane-scene">
-        {/* checkpoint at the stop line */}
         <div className="checkpoint" style={{ left: 0, width: '100%' }}>
           {!isFinal && <>
             <div className="stop-zone" style={{ left: `calc(${LINE_X}% - 60px)` }}></div>
             <div className="stop-line" style={{ left: `${LINE_X}%` }}></div>
-            <div className="tl-game" style={{ left: `calc(${LINE_X}% - 90px)` }}>
-              <img src={lightSrc} alt="đèn đỏ" />
-            </div>
-            <div className={'police-game' + (whistle ? ' whistle' : '')} style={{ left: `calc(${LINE_X}% + 160px)` }}>
-              <img src={policeSrc} alt="công an" />
-            </div>
             <div className={'whistle-fx' + (whistle ? ' show' : '')} style={{ left: `calc(${LINE_X}% + 300px)` }}>TUÝT! 📣</div>
           </>}
-
-          {/* stage 5's destination (HEAD Tân Kiều) is now part of the backdrop art */}
         </div>
 
         {/* mascot rider */}
@@ -388,7 +398,12 @@ const PlayingScreen = forwardRef(function PlayingScreen(props, ref) {
         </div>
         <div className="power-track">
           <div className="power-target" style={{ left: `${band.lo}%`, width: `${band.hi - band.lo}%` }}></div>
-          <div className="power-fill" style={{ width: `${power}%`, transition: phase === 'charging' ? 'none' : 'width .3s' }}></div>
+          <div className="power-fill" style={{
+            width: `${power}%`,
+            transition: phase === 'charging'
+              ? (camLive && !keyboardChargeRef.current ? 'width 0.14s ease-out' : 'none')
+              : 'width .3s',
+          }}></div>
         </div>
         <div className="power-hint">
           {phase === 'charging'

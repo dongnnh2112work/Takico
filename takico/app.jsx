@@ -10,7 +10,6 @@ function App() {
   const [lose, setLose] = React.useState({ reason: 'redlight', cleared: 0 });
   const playRef = React.useRef(null);
 
-  const policeSrc = TAK.useKnockout(TAK.A.police);
   const lightSrc = TAK.useKnockout(TAK.A.light);
 
   const inGame = state === 'PLAYING';
@@ -157,7 +156,6 @@ function App() {
                 totalStages={game.totalStages}
                 totalLives={game.totalLives}
                 timeLimitSec={game.timeLimitSec}
-                policeSrc={policeSrc}
                 lightSrc={lightSrc}
                 onWin={() => setPlayOverlay('win')}
                 onGameOver={(reason, cleared) => {
@@ -171,7 +169,6 @@ function App() {
                   stagesCleared={lose.cleared}
                   totalStages={game.totalStages}
                   totalLives={game.totalLives}
-                  policeSrc={policeSrc}
                   onRetry={startGame}
                   onHome={exitToIdle}
                 />

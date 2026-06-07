@@ -32,10 +32,11 @@ const MicatcherTracking = (() => {
   // ── Squat metric — measured in SHOULDER-WIDTH units (distance-invariant) ──
   // Depth = how far shoulders dropped below baseline, divided by shoulder
   // width. This stays consistent whether the player is near or far.
-  const SQUAT_TH = 0.34;         // shoulder-width units to START charging
-  const MAX_DEPTH = 1.15;        // depth that maps to full power
-  const JUMP_VEL_TH = 0.06;      // upward velocity (sw-units / window) to trigger jump
-  const STAND_RECENTER = 0.12;   // baseline follow rate while standing (absorbs walking)
+  const SQUAT_TH = 0.26;         // nhún nhẹ hơn là bắt đầu tích lực
+  const MAX_DEPTH = 0.92;        // squat vừa → gần full power
+  const JUMP_VEL_TH = 0.055;
+  const STAND_RECENTER = 0.07;   // baseline ít trôi khi đang giữ nhún
+  const POWER_RISE = 0.22;       // làm mượt tăng lực (0..1, càng nhỏ càng mượt)
 
   function clamp(v, min, max) {
     return Math.max(min, Math.min(max, v));
@@ -47,10 +48,11 @@ const MicatcherTracking = (() => {
     return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
   }
 
-  /** Preview power from squat depth (shoulder-width units): 0 until real squat. */
+  /** Preview power — ease mid-range để dễ vào vùng xanh hơn. */
   function calcPreviewPower(depthUnits) {
     if (depthUnits < SQUAT_TH) return 0;
-    const norm = clamp((depthUnits - SQUAT_TH) / (MAX_DEPTH - SQUAT_TH), 0, 1);
+    let norm = clamp((depthUnits - SQUAT_TH) / (MAX_DEPTH - SQUAT_TH), 0, 1);
+    norm = Math.pow(norm, 0.82);
     return Math.round(norm * 100);
   }
 
@@ -112,6 +114,8 @@ const MicatcherTracking = (() => {
       lockAcquire: 0,
       lastGoodSubject: null,
       displayTransform: null,
+      peakPower: 0,
+      smoothLandmarks: null,
       pose: null,
       poseCamera: null,
       tuning: {
@@ -140,26 +144,49 @@ const MicatcherTracking = (() => {
       state.lockedPlayer = null;
       state.lockAcquire = 0;
       state.lastGoodSubject = null;
+      state.peakPower = 0;
+      state.smoothLandmarks = null;
     }
 
-    /** Map video landmark → overlay pixel (cover + selfie mirror). */
+    /** Làm mượt landmark overlay (face/shoulder ít giật). */
+    function smoothLandmarkFrame(landmarks) {
+      const alpha = 0.38;
+      if (!state.smoothLandmarks) {
+        state.smoothLandmarks = landmarks.map((p) => ({ x: p.x, y: p.y, visibility: p.visibility }));
+        return state.smoothLandmarks;
+      }
+      state.smoothLandmarks = landmarks.map((p, i) => {
+        const prev = state.smoothLandmarks[i] || { x: p.x, y: p.y };
+        return {
+          x: prev.x * (1 - alpha) + p.x * alpha,
+          y: prev.y * (1 - alpha) + p.y * alpha,
+          visibility: p.visibility,
+        };
+      });
+      return state.smoothLandmarks;
+    }
+
+    /** Map landmark → canvas pixel (cover crop, khớp video mirror CSS). */
     function updateDisplayTransform() {
       const vw = videoEl.videoWidth || 640;
       const vh = videoEl.videoHeight || 480;
-      const dw = overlayEl.width || 1;
-      const dh = overlayEl.height || 1;
+      const cssW = videoEl.clientWidth || overlayEl.clientWidth || 1;
+      const cssH = videoEl.clientHeight || overlayEl.clientHeight || 1;
+      const dpr = overlayEl.width / cssW || window.devicePixelRatio || 1;
+      const dw = Math.max(1, Math.floor(cssW * dpr));
+      const dh = Math.max(1, Math.floor(cssH * dpr));
       const scale = Math.max(dw / vw, dh / vh);
       const sw = vw * scale;
       const sh = vh * scale;
       state.displayTransform = {
-        vw, vh, dw, dh, scale, ox: (dw - sw) / 2, oy: (dh - sh) / 2,
+        vw, vh, dw, dh, cssW, cssH, dpr, scale, ox: (dw - sw) / 2, oy: (dh - sh) / 2,
       };
     }
 
     function mapLandmark(lm) {
       const t = state.displayTransform;
       if (!t || !lm) return null;
-      const x = (1 - lm.x) * t.vw * t.scale + t.ox;
+      const x = lm.x * t.vw * t.scale + t.ox;
       const y = lm.y * t.vh * t.scale + t.oy;
       return { x, y };
     }
@@ -261,12 +288,14 @@ const MicatcherTracking = (() => {
       return subject;
     }
 
-    function smoothDisplayPower(target) {
-      if (target <= 0) {
-        state.displayPower = 0;
-        return 0;
+    /** Chỉ tăng lực khi nhún (không giảm giữa chừng — tránh nhiễu). */
+    function rampDisplayPower(target) {
+      if (target <= 0) return Math.round(state.displayPower);
+      if (target > state.displayPower) {
+        state.displayPower += (target - state.displayPower) * POWER_RISE;
       }
-      state.displayPower = state.displayPower * 0.55 + target * 0.45;
+      state.peakPower = Math.max(state.peakPower, state.displayPower);
+      state.displayPower = Math.max(state.displayPower, state.peakPower * 0.97);
       return Math.round(state.displayPower);
     }
 
@@ -386,14 +415,21 @@ const MicatcherTracking = (() => {
       if (isCrouching) {
         setPoseState("CROUCHING");
         const previewPower = calcPreviewPower(currentDepth);
-        state.currentPower = previewPower;
-        onPowerPreview?.(smoothDisplayPower(previewPower));
+        state.currentPower = Math.max(state.currentPower, previewPower);
+        onPowerPreview?.(rampDisplayPower(previewPower));
+        return;
+      }
+
+      if (currentDepth >= SQUAT_TH * 0.45) {
+        setPoseState("CROUCHING");
+        onPowerPreview?.(Math.round(state.displayPower));
         return;
       }
 
       setPoseState("STANDING");
       state.currentPower = 0;
       state.displayPower = 0;
+      state.peakPower = 0;
       onPowerPreview?.(0);
     }
 
@@ -401,20 +437,26 @@ const MicatcherTracking = (() => {
       const ctx = overlayEl.getContext("2d");
       if (!ctx) return;
       updateDisplayTransform();
+      const t = state.displayTransform;
       const { width, height } = overlayEl;
       ctx.clearRect(0, 0, width, height);
 
-      const landmarks = results.poseLandmarks;
-      if (!landmarks) return;
+      const raw = results.poseLandmarks;
+      if (!raw || !t) return;
 
+      const landmarks = smoothLandmarkFrame(raw);
       const subject = state.lastGoodSubject;
       if (!subject) return;
 
-      ctx.lineWidth = 2;
-      ctx.strokeStyle = "rgba(91,238,255,0.8)";
+      ctx.save();
+      ctx.translate(t.dw, 0);
+      ctx.scale(-1, 1);
+
+      ctx.lineWidth = 2.5;
+      ctx.strokeStyle = "rgba(91,238,255,0.85)";
 
       const segments = [
-        [0, 11], [0, 12], [11, 12], [11, 23], [12, 24], [23, 24],
+        [0, 11], [0, 12], [11, 12], [11, 23], [12, 24],
       ];
       for (const [a, b] of segments) {
         const p1 = mapLandmark(landmarks[a]);
@@ -426,38 +468,32 @@ const MicatcherTracking = (() => {
         ctx.stroke();
       }
 
-      const faceIds = [0, 2, 5];
-      const shoulderIds = [11, 12];
-      for (const id of faceIds) {
+      const drawDot = (id, r, color) => {
         const p = mapLandmark(landmarks[id]);
-        if (!p) continue;
+        if (!p) return;
         ctx.beginPath();
-        ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
-        ctx.fillStyle = "#FFD23E";
+        ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+        ctx.fillStyle = color;
         ctx.fill();
-      }
-      for (const id of shoulderIds) {
-        const p = mapLandmark(landmarks[id]);
-        if (!p) continue;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, 7, 0, Math.PI * 2);
-        ctx.fillStyle = "#00E5FF";
-        ctx.fill();
-      }
+      };
+      drawDot(0, 5, "#FFD23E");
+      drawDot(2, 4, "#FFE566");
+      drawDot(5, 4, "#FFE566");
+      drawDot(11, 7, "#00E5FF");
+      drawDot(12, 7, "#00E5FF");
 
       if (state.lockedPlayer) {
-        const lock = state.lockedPlayer;
-        const ref = mapLandmark({ x: lock.faceX, y: lock.faceY, visibility: 1 });
-        const t = state.displayTransform;
-        if (ref && t) {
-          const radius = Math.max(14, lock.faceW * t.vw * t.scale * 0.85);
-          ctx.strokeStyle = "rgba(255, 210, 60, 0.45)";
-          ctx.lineWidth = 1.5;
+        const ref = mapLandmark({ x: state.lockedPlayer.faceX, y: state.lockedPlayer.faceY, visibility: 1 });
+        if (ref) {
+          const radius = Math.max(14, state.lockedPlayer.faceW * t.vw * t.scale * 0.9);
+          ctx.strokeStyle = "rgba(255, 210, 60, 0.5)";
+          ctx.lineWidth = 2;
           ctx.beginPath();
           ctx.arc(ref.x, ref.y, radius, 0, Math.PI * 2);
           ctx.stroke();
         }
       }
+      ctx.restore();
     }
 
     async function initPosePipeline() {
@@ -510,8 +546,10 @@ const MicatcherTracking = (() => {
       if (!box) return;
       const rect = box.getBoundingClientRect();
       const dpr = window.devicePixelRatio || 1;
-      overlayEl.width = Math.max(1, Math.floor(rect.width * dpr));
-      overlayEl.height = Math.max(1, Math.floor(rect.height * dpr));
+      const w = Math.max(1, Math.floor(rect.width * dpr));
+      const h = Math.max(1, Math.floor(rect.height * dpr));
+      overlayEl.width = w;
+      overlayEl.height = h;
       overlayEl.style.width = `${rect.width}px`;
       overlayEl.style.height = `${rect.height}px`;
       updateDisplayTransform();

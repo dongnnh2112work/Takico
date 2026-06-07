@@ -31,7 +31,7 @@ function Confetti() {
 }
 
 /* ── 04 · LOSE ── */
-function LoseScreen({ reason, stagesCleared, totalStages, totalLives, policeSrc, onRetry, onHome }) {
+function LoseScreen({ reason, stagesCleared, totalStages, totalLives, onRetry, onHome }) {
   const copy = {
     redlight: { title: 'VƯỢT ĐÈN ĐỎ!', tag: 'Chưa an toàn rồi', desc: <>Takico lấy đà quá mạnh nên <b>vượt qua vạch khi đèn đỏ</b> — chú công an đã tuýt còi. Nhớ dừng đúng vạch để đi tiếp nhé!</> },
     short:    { title: 'CHƯA TỚI VẠCH', tag: 'Gần được rồi', desc: <>Lực nhún hơi nhẹ nên xe <b>dừng trước vạch</b>. Thử lấy đà mạnh hơn một chút để dừng đúng vạch!</> },
@@ -41,9 +41,6 @@ function LoseScreen({ reason, stagesCleared, totalStages, totalLives, policeSrc,
   return (
     <div className="overlay-screen overlay-lose">
       <div className="scrim"></div>
-      {reason === 'redlight' && (
-        <img className="result-deco-police" src={policeSrc} alt="" />
-      )}
       <div className="result-popup result-popup--lose">
         <header className="result-popup__head">
           <div className="result-emblem bad">🚦</div>

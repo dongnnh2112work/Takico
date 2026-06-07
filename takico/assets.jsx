@@ -6,6 +6,13 @@
   function flatAssets(manifest) {
     const a = manifest.assets;
     const props = a.props || {};
+    const roundBgs = (a.roundBackgrounds || []).map((r) => ({
+      red: r.red,
+      green: r.green,
+    }));
+    const stageBgs = roundBgs.length
+      ? roundBgs.map((r) => r.red)
+      : (a.stageBackgrounds || []);
     return {
       logo: a.logo,
       mascot: a.mascotFront,
@@ -13,12 +20,13 @@
       idleBg: a.idleBackground,
       glb: a.characterGlb,
       kv26: a.keyvisual,
-      stageBgs: a.stageBackgrounds || [],
-      sceneBg: a.stageBackgrounds?.[0],
-      sceneBg2: a.stageBackgrounds?.[1],
-      sceneBg3: a.stageBackgrounds?.[2],
-      sceneBg5: a.stageBackgrounds?.[3],
-      sceneBg6: a.stageBackgrounds?.[4],
+      roundBgs,
+      stageBgs,
+      sceneBg: stageBgs[0],
+      sceneBg2: stageBgs[1],
+      sceneBg3: stageBgs[2],
+      sceneBg5: stageBgs[3],
+      sceneBg6: stageBgs[4],
       police: norm(props.police),
       light: norm(props.trafficLight),
       dealer: norm(props.dealer),
@@ -102,15 +110,15 @@
           logo: 'assets/logo-takico.png',
           mascotFront: 'assets/mascot-ride.png',
           mascotSide: 'assets/mascot-ride-side.png',
-          idleBackground: 'assets/idle-screen.jpg',
+          idleBackground: 'assets/backround/thumb.png',
           characterGlb: 'assets/character.glb',
           keyvisual: 'assets/keyvisual-26.png',
-          stageBackgrounds: [
-            'assets/scene-bg.png',
-            'assets/scene-bg2.png',
-            'assets/scene-bg3.png',
-            'assets/scene-bg5.png',
-            'assets/scene-bg6.png',
+          roundBackgrounds: [
+            { red: 'assets/backround/round1_red.png', green: 'assets/backround/round1_green.png' },
+            { red: 'assets/backround/round2_red.png', green: 'assets/backround/round2_green.png' },
+            { red: 'assets/backround/round3_red.png', green: 'assets/backround/round3_green.png' },
+            { red: 'assets/backround/round4_red.png', green: 'assets/backround/round4_green.png' },
+            { red: 'assets/backround/round5_red.png', green: 'assets/backround/round5_green.png' },
           ],
           props: {
             police: 'raw/Chú công an.png',
