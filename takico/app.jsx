@@ -1,6 +1,6 @@
 /* ĐI CÙNG TAKICO — App shell: state machine, input, kiosk scaling, dev nav */
 
-const STATES = ['IDLE', 'TUTORIAL', 'PLAYING', 'LOSE', 'WIN'];
+const STATES = ['IDLE', 'PLAYING', 'LOSE', 'WIN'];
 
 function App() {
   const game = window.TAK.GAME;
@@ -44,8 +44,7 @@ function App() {
     function press() {
       const s = stateRef.current;
       if (overlayRef.current) return;
-      if (s === 'IDLE') setState('TUTORIAL');
-      else if (s === 'TUTORIAL') startGame();
+      if (s === 'IDLE') startGame();
       else if (s === 'PLAYING') playRef.current && playRef.current.press();
     }
     function release() {
@@ -134,11 +133,7 @@ function App() {
       <div className="kiosk" id="kiosk">
 
         <div className={'screen' + (state === 'IDLE' ? ' active' : '')}>
-          {state === 'IDLE' && <IdleScreen lightSrc={lightSrc} onStart={() => setState('TUTORIAL')} />}
-        </div>
-
-        <div className={'screen' + (state === 'TUTORIAL' ? ' active' : '')}>
-          {state === 'TUTORIAL' && <TutorialScreen onStart={startGame} />}
+          {state === 'IDLE' && <IdleScreen lightSrc={lightSrc} onStart={startGame} />}
         </div>
 
         <div
@@ -188,7 +183,7 @@ function App() {
       <div className="dev-nav">
         {STATES.map((s) => (
           <button key={s} className={devNavActive(s) ? 'active' : ''} onClick={() => devNavTo(s)}>
-            {{ IDLE: '01 Chờ', TUTORIAL: '02 Hướng dẫn', PLAYING: '03 Chơi', LOSE: '04 Thua', WIN: '05 Thắng' }[s]}
+            {{ IDLE: '01 Chờ', PLAYING: '02 Chơi', LOSE: '03 Thua', WIN: '04 Thắng' }[s]}
           </button>
         ))}
       </div>
