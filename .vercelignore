@@ -1,0 +1,23 @@
+# Thư mục dev / bản nháp — không cần khi chạy game (~65MB)
+uploads/
+
+# Bản duplicate nặng trong raw/ (game dùng assets/ + 3 prop nhỏ)
+raw/Character.glb
+raw/KEY VISUAL 26.png
+raw/ChatGPT*
+raw/Micatcher*
+raw/LOGO*
+
+# Ảnh gốc đã thay bằng assets/opt/*.webp (~35MB)
+assets/backround/
+assets/Background V2/
+assets/mascot-ride.png
+assets/mascot-ride-side.png
+assets/scene-bg*.png
+assets/ref-keyart.png
+assets/idle-screen.jpg
+assets/keyvisual-26.png
+
+# HTML dev, không phải entry game
+Game Play/micatcher-gameplay.html
+raw/Micatcher-UI-Scenes.html
