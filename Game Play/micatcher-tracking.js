@@ -12,8 +12,10 @@ const MicatcherTracking = (() => {
   const MIN_VISIBILITY = 0.5;
   const HISTORY_SIZE = 10;
   const SQUAT_WINDOW_MS = 900;
-  const CALIB_FRAMES = 30;
   const CROUCH_HOLD_FRAMES = 6;
+
+  // Bật readout debug bằng URL ?debug=1 (depth / headDrop / legSignal / power).
+  const DEBUG = typeof location !== "undefined" && /[?&]debug=1/.test(location.search || "");
 
   // ── Foreground-subject gating (reject background crowd) ──────────────────
   // Normalized coords [0..1]. Player stands close + centered; background
@@ -29,14 +31,30 @@ const MicatcherTracking = (() => {
   const LOCK_FACE_MAX_DY = 0.22;
   const LOCK_SHOULDER_MIN_RATIO = 0.72; // reject much smaller person (background)
 
+  // ── Calibration — chốt baseline "đứng thẳng" khi người ĐỨNG YÊN ──────────
+  const CALIB_FRAMES = 50;       // cửa sổ mẫu (raised from 30) — calibrate kỹ hơn
+  const CALIB_STILL_TOL = 0.012; // stddev shoulder-Y tối đa để coi là đứng yên
+
   // ── Squat metric — measured in SHOULDER-WIDTH units (distance-invariant) ──
   // Depth = how far shoulders dropped below baseline, divided by shoulder
   // width. This stays consistent whether the player is near or far.
-  const SQUAT_TH = 0.26;         // nhún nhẹ hơn là bắt đầu tích lực
+  const SQUAT_TH = 0.32;         // biên độ nhún rõ ràng mới bắt đầu tích lực
   const MAX_DEPTH = 0.92;        // squat vừa → gần full power
-  const JUMP_VEL_TH = 0.055;
-  const STAND_RECENTER = 0.07;   // baseline ít trôi khi đang giữ nhún
-  const POWER_RISE = 0.22;       // làm mượt tăng lực (0..1, càng nhỏ càng mượt)
+  const JUMP_VEL_TH = 0.12;      // vận tốc đi lên DỨT KHOÁT mới kích hoạt nhảy
+                                 // (nhổm nhẹ để chỉnh lực sẽ KHÔNG bật)
+  const STAND_RECENTER = 0.07;   // baseline trôi theo khi đứng (hấp thụ đi/lùi)
+  const POWER_RISE = 0.22;       // làm mượt khi lực TĂNG (0..1, nhỏ = mượt)
+  const POWER_FALL = 0.18;       // làm mượt khi lực GIẢM (hết nhún → tụt về 0)
+  const HELD_DECAY_MS = 250;     // giữ đỉnh lực ngắn: cú bật nhanh dùng đúng lực,
+                                 // nhổm lên lâu hơn mới cho lực hạ để chỉnh
+
+  // ── Cổng chống false-positive (ngả người / khom / góc camera thấp) ───────
+  const HEAD_SHOULDER_SYNC_TOL = 0.16; // sai lệch cho phép giữa head-drop & shoulder-drop (sw-units)
+  const DIP_VEL_TH = 0.02;       // vận tốc đi xuống tối thiểu để "khởi phát" nhún (dip động)
+  const LEG_MIN_VIS = 0.5;       // visibility tối thiểu của hông/gối/cổ chân
+  const KNEE_STAND_ANGLE = 165;  // góc gối khi đứng thẳng (độ)
+  const KNEE_SQUAT_ANGLE = 110;  // góc gối khi nhún sâu → tín hiệu chân = 1
+  const LEG_MIN_SIGNAL = 0.12;   // tín hiệu chân tối thiểu để công nhận đang nhún
 
   function clamp(v, min, max) {
     return Math.max(min, Math.min(max, v));
@@ -48,20 +66,53 @@ const MicatcherTracking = (() => {
     return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
   }
 
+  function stddev(values) {
+    const n = values.length;
+    if (n < 2) return 0;
+    const mean = values.reduce((s, v) => s + v, 0) / n;
+    const varc = values.reduce((s, v) => s + (v - mean) * (v - mean), 0) / n;
+    return Math.sqrt(varc);
+  }
+
+  function visLeg(lm) {
+    return lm && (lm.visibility ?? 0) >= LEG_MIN_VIS;
+  }
+
+  /** Góc (độ) tại đỉnh b tạo bởi a-b-c. */
+  function angleAt(b, a, c) {
+    const v1x = a.x - b.x, v1y = a.y - b.y;
+    const v2x = c.x - b.x, v2y = c.y - b.y;
+    const m1 = Math.hypot(v1x, v1y), m2 = Math.hypot(v2x, v2y);
+    if (m1 === 0 || m2 === 0) return null;
+    let cos = (v1x * v2x + v1y * v2y) / (m1 * m2);
+    cos = Math.max(-1, Math.min(1, cos));
+    return (Math.acos(cos) * 180) / Math.PI;
+  }
+
+  /**
+   * Tín hiệu nhún từ độ gập gối (hip-knee-ankle). 0..1, hoặc null nếu chân
+   * không nhìn thấy rõ → khi đó fallback về baseline vai + cổng đầu/vai.
+   */
+  function legSquatSignal(landmarks) {
+    const sides = [[23, 25, 27], [24, 26, 28]];
+    const angles = [];
+    for (const [h, k, a] of sides) {
+      const hp = landmarks[h], kp = landmarks[k], ap = landmarks[a];
+      if (!visLeg(hp) || !visLeg(kp) || !visLeg(ap)) continue;
+      const ang = angleAt(kp, hp, ap);
+      if (ang != null) angles.push(ang);
+    }
+    if (!angles.length) return null;
+    const ang = angles.reduce((s, v) => s + v, 0) / angles.length;
+    return clamp((KNEE_STAND_ANGLE - ang) / (KNEE_STAND_ANGLE - KNEE_SQUAT_ANGLE), 0, 1);
+  }
+
   /** Preview power — ease mid-range để dễ vào vùng xanh hơn. */
   function calcPreviewPower(depthUnits) {
     if (depthUnits < SQUAT_TH) return 0;
     let norm = clamp((depthUnits - SQUAT_TH) / (MAX_DEPTH - SQUAT_TH), 0, 1);
     norm = Math.pow(norm, 0.82);
     return Math.round(norm * 100);
-  }
-
-  /** Jump release — aligned with preview so full squat ≈ 95–100. */
-  function calcJumpPower(velocityUp, depthUnits) {
-    const preview = calcPreviewPower(depthUnits);
-    if (preview <= 0) return POWER.MIN;
-    const velBonus = clamp(velocityUp / 0.18, 0, 1) * 12;
-    return clamp(Math.round(Math.min(100, preview * 0.95 + velBonus)), POWER.MIN, 100);
   }
 
   function loadScript(src, id) {
@@ -101,9 +152,14 @@ const MicatcherTracking = (() => {
       displayPower: 0,
       poseState: "IDLE",
       standingBaseY: null,
+      standingHeadY: null,
       calibrated: false,
       calibSamples: [],
       crouchHoldFrames: 0,
+      dipArmed: false,    // đã phát hiện cú đi xuống (dip) → cho phép tích lực
+      squatPrimed: false, // đã vào CROUCHING hợp lệ → cho phép nhảy
+      heldPower: 0,       // lực đang giữ (đỉnh ngắn) — dùng khi bật lên
+      heldPowerAt: 0,     // mốc thời gian cập nhật đỉnh lực gần nhất
       cooldownUntil: 0,
       shoulderHistory: [],
       recentPeakY: 0,
@@ -114,8 +170,8 @@ const MicatcherTracking = (() => {
       lockAcquire: 0,
       lastGoodSubject: null,
       displayTransform: null,
-      peakPower: 0,
       smoothLandmarks: null,
+      debug: null,
       pose: null,
       poseCamera: null,
       tuning: {
@@ -131,9 +187,14 @@ const MicatcherTracking = (() => {
 
     function resetCalibrationState() {
       state.standingBaseY = null;
+      state.standingHeadY = null;
       state.calibrated = false;
       state.calibSamples = [];
       state.crouchHoldFrames = 0;
+      state.dipArmed = false;
+      state.squatPrimed = false;
+      state.heldPower = 0;
+      state.heldPowerAt = 0;
       state.recentPeakY = 0;
       state.recentPeakAt = 0;
       state.shoulderHistory.length = 0;
@@ -144,8 +205,8 @@ const MicatcherTracking = (() => {
       state.lockedPlayer = null;
       state.lockAcquire = 0;
       state.lastGoodSubject = null;
-      state.peakPower = 0;
       state.smoothLandmarks = null;
+      state.debug = null;
     }
 
     /** Làm mượt landmark overlay (face/shoulder ít giật). */
@@ -170,16 +231,15 @@ const MicatcherTracking = (() => {
     function updateDisplayTransform() {
       const vw = videoEl.videoWidth || 640;
       const vh = videoEl.videoHeight || 480;
-      const cssW = videoEl.clientWidth || overlayEl.clientWidth || 1;
-      const cssH = videoEl.clientHeight || overlayEl.clientHeight || 1;
-      const dpr = overlayEl.width / cssW || window.devicePixelRatio || 1;
-      const dw = Math.max(1, Math.floor(cssW * dpr));
-      const dh = Math.max(1, Math.floor(cssH * dpr));
-      const scale = Math.max(dw / vw, dh / vh);
+      // Làm việc trực tiếp trên kích thước backing thật của canvas → mirror axis
+      // (dw) và cover crop luôn khớp đúng pixel, bất kể kiosk scale / làm tròn.
+      const dw = Math.max(1, overlayEl.width);
+      const dh = Math.max(1, overlayEl.height);
+      const scale = Math.max(dw / vw, dh / vh); // object-fit: cover
       const sw = vw * scale;
       const sh = vh * scale;
       state.displayTransform = {
-        vw, vh, dw, dh, cssW, cssH, dpr, scale, ox: (dw - sw) / 2, oy: (dh - sh) / 2,
+        vw, vh, dw, dh, scale, ox: (dw - sw) / 2, oy: (dh - sh) / 2,
       };
     }
 
@@ -288,14 +348,16 @@ const MicatcherTracking = (() => {
       return subject;
     }
 
-    /** Chỉ tăng lực khi nhún (không giảm giữa chừng — tránh nhiễu). */
+    /**
+     * Làm mượt lực hiển thị về phía target theo CẢ hai chiều:
+     * tăng nhanh (POWER_RISE) khi nhún sâu thêm, tụt (POWER_FALL) khi hết nhún.
+     * Không còn giữ đỉnh → lực không bị "dính" sau một cú nhiễu.
+     */
     function rampDisplayPower(target) {
-      if (target <= 0) return Math.round(state.displayPower);
-      if (target > state.displayPower) {
-        state.displayPower += (target - state.displayPower) * POWER_RISE;
-      }
-      state.peakPower = Math.max(state.peakPower, state.displayPower);
-      state.displayPower = Math.max(state.displayPower, state.peakPower * 0.97);
+      const t = Math.max(0, target);
+      const rate = t > state.displayPower ? POWER_RISE : POWER_FALL;
+      state.displayPower += (t - state.displayPower) * rate;
+      if (state.displayPower < 0.5) state.displayPower = 0;
       return Math.round(state.displayPower);
     }
 
@@ -328,17 +390,27 @@ const MicatcherTracking = (() => {
 
       // Work in normalized shoulder-Y [0..1]; larger = lower on screen = deeper.
       const shoulderYn = subject.shoulderY;
+      const headYn = subject.faceY;
       const shoulderWn = Math.max(MIN_SHOULDER_W, subject.shoulderW);
 
+      // ── Calibrate baseline: chỉ chốt khi người ĐỨNG YÊN (variance thấp) ──
       if (!state.calibrated) {
-        state.calibSamples.push(shoulderYn);
+        setPoseState("CALIBRATING");
+        state.calibSamples.push({ y: shoulderYn, h: headYn });
+        if (state.calibSamples.length > CALIB_FRAMES) state.calibSamples.shift();
         if (state.calibSamples.length < CALIB_FRAMES) {
-          setPoseState("IDLE");
           onPowerPreview?.(0);
           return;
         }
-        // Median standing shoulder-Y = robust baseline (ignores brief outliers)
-        state.standingBaseY = median(state.calibSamples);
+        const ys = state.calibSamples.map((s) => s.y);
+        if (stddev(ys) > CALIB_STILL_TOL) {
+          // Còn cử động → chưa chốt, trượt cửa sổ mẫu và chờ đứng yên.
+          onPowerPreview?.(0);
+          return;
+        }
+        state.standingBaseY = median(ys);
+        const hs = state.calibSamples.map((s) => s.h).filter((v) => v != null);
+        state.standingHeadY = hs.length ? median(hs) : null;
         state.recentPeakY = shoulderYn;
         state.recentPeakAt = now;
         state.calibrated = true;
@@ -352,21 +424,10 @@ const MicatcherTracking = (() => {
         state.recentPeakAt = now;
       }
 
-      // Depth & velocity in SHOULDER-WIDTH units → distance-invariant.
+      // Depth in SHOULDER-WIDTH units → distance-invariant.
       const currentDepth = Math.max(0, (shoulderYn - state.standingBaseY) / shoulderWn);
-      const sqDepth = Math.max(0, (state.recentPeakY - state.standingBaseY) / shoulderWn);
 
-      // Standing (or slowly walking near/far): re-center baseline so distance
-      // changes get absorbed instead of reading as power. A real squat is
-      // faster than this follow rate, so it still registers.
-      if (currentDepth < SQUAT_TH * 0.5) {
-        state.crouchHoldFrames = 0;
-        state.standingBaseY =
-          state.standingBaseY * (1 - STAND_RECENTER) + shoulderYn * STAND_RECENTER;
-        const peakMargin = SQUAT_TH * 0.3 * shoulderWn;
-        state.recentPeakY = Math.min(state.recentPeakY, shoulderYn + peakMargin);
-      }
-
+      // Velocity (sw-units / window); dương = vai đi xuống, âm = đi lên.
       state.shoulderHistory.unshift(shoulderYn);
       if (state.shoulderHistory.length > HISTORY_SIZE) state.shoulderHistory.pop();
       if (state.shoulderHistory.length < 4) {
@@ -374,10 +435,39 @@ const MicatcherTracking = (() => {
         onPowerPreview?.(0);
         return;
       }
-
       const vWindow = Math.min(state.shoulderHistory.length, 5);
       const velocity =
         (state.shoulderHistory[0] - state.shoulderHistory[vWindow - 1]) / shoulderWn;
+
+      // ── Cổng 1: đầu + vai cùng tịnh tiến xuống (khử ngả/khom) ──
+      let headDrop = null;
+      if (state.standingHeadY != null && headYn != null) {
+        headDrop = (headYn - state.standingHeadY) / shoulderWn;
+      }
+      const syncOk = headDrop == null
+        ? true
+        : Math.abs(headDrop - currentDepth) <= HEAD_SHOULDER_SYNC_TOL + currentDepth * 0.6;
+
+      // ── Cổng 2: tín hiệu chân (gập gối) khi nhìn thấy cả người ──
+      const legSignal = legSquatSignal(subject.landmarks); // 0..1 hoặc null
+      const legOk = legSignal == null ? true : legSignal >= LEG_MIN_SIGNAL;
+
+      // ── Cổng 3: dip động — phải có cú đi xuống mới "lên đạn" tích lực ──
+      if (velocity > DIP_VEL_TH) state.dipArmed = true;
+
+      const squatValid = state.dipArmed && syncOk && legOk;
+
+      if (DEBUG) {
+        state.debug = {
+          depth: currentDepth,
+          headDrop,
+          legSignal,
+          dip: state.dipArmed,
+          sync: syncOk,
+          valid: squatValid,
+          power: Math.round(state.displayPower),
+        };
+      }
 
       if (now < state.cooldownUntil) {
         setPoseState("COOLDOWN");
@@ -385,21 +475,12 @@ const MicatcherTracking = (() => {
         return;
       }
 
-      const hadSquat = sqDepth >= SQUAT_TH * 1.05;
-      const isCrouchingRaw = currentDepth >= SQUAT_TH * 0.92;
-
-      if (isCrouchingRaw) {
-        state.crouchHoldFrames = Math.min(state.crouchHoldFrames + 1, CROUCH_HOLD_FRAMES + 2);
-      } else {
-        state.crouchHoldFrames = 0;
-      }
-
-      const isCrouching = state.crouchHoldFrames >= CROUCH_HOLD_FRAMES;
+      // ── Nhảy: cú bật DỨT KHOÁT lên sau một cú nhún hợp lệ.
+      // Dùng đúng lực đang hiển thị (heldPower), KHÔNG cộng thêm → bật bao nhiêu
+      // bằng đúng lực đã nạp. Kiểm tra TRƯỚC recenter để không bị reset sớm.
       const launchingUp = velocity < -JUMP_VEL_TH;
-
-      if (launchingUp && (isCrouching || hadSquat)) {
-        const depthForJump = Math.max(currentDepth, sqDepth * 0.5);
-        const jumpPower = calcJumpPower(Math.abs(velocity), depthForJump);
+      if (launchingUp && state.squatPrimed) {
+        const jumpPower = clamp(Math.round(state.heldPower), POWER.MIN, 100);
         setPoseState("JUMP");
         state.currentPower = jumpPower;
         state.displayPower = jumpPower;
@@ -407,30 +488,93 @@ const MicatcherTracking = (() => {
         if (canJump()) onJumpPower?.(jumpPower);
         state.cooldownUntil = now + state.tuning.cooldownMs;
         state.crouchHoldFrames = 0;
+        state.dipArmed = false;
+        state.squatPrimed = false;
+        state.heldPower = 0;
         state.recentPeakY = shoulderYn;
         state.recentPeakAt = now;
         return;
       }
 
-      if (isCrouching) {
+      // Đứng / hấp thụ trôi: recenter baseline khi gần tư thế đứng.
+      if (currentDepth < SQUAT_TH * 0.5) {
+        state.crouchHoldFrames = 0;
+        state.dipArmed = false;
+        state.squatPrimed = false;
+        state.heldPower = 0;
+        state.standingBaseY =
+          state.standingBaseY * (1 - STAND_RECENTER) + shoulderYn * STAND_RECENTER;
+        if (state.standingHeadY != null && headYn != null) {
+          state.standingHeadY =
+            state.standingHeadY * (1 - STAND_RECENTER) + headYn * STAND_RECENTER;
+        }
+        const peakMargin = SQUAT_TH * 0.3 * shoulderWn;
+        state.recentPeakY = Math.min(state.recentPeakY, shoulderYn + peakMargin);
+      } else if (!squatValid && !state.squatPrimed) {
+        // Ở độ sâu trung bình nhưng KHÔNG phải nhún hợp lệ (ngả/khom tĩnh):
+        // recenter chậm để baseline trôi về tư thế hiện tại → lực không treo.
+        const slow = STAND_RECENTER * 0.5;
+        state.standingBaseY = state.standingBaseY * (1 - slow) + shoulderYn * slow;
+        if (state.standingHeadY != null && headYn != null) {
+          state.standingHeadY = state.standingHeadY * (1 - slow) + headYn * slow;
+        }
+      }
+
+      // Đủ sâu VÀ hợp lệ → tích frame giữ nhún; ngược lại nhả dần.
+      const deepEnough = currentDepth >= SQUAT_TH * 0.92;
+      if (deepEnough && squatValid) {
+        state.crouchHoldFrames = Math.min(state.crouchHoldFrames + 1, CROUCH_HOLD_FRAMES + 2);
+      } else {
+        state.crouchHoldFrames = Math.max(0, state.crouchHoldFrames - 1);
+      }
+      const isCrouching = state.crouchHoldFrames >= CROUCH_HOLD_FRAMES;
+
+      // Đang nạp/giữ/chỉnh lực: nhún sâu hơn → lực tăng tức thì & giữ đỉnh ngắn;
+      // nhổm lên lâu hơn HELD_DECAY_MS → lực hạ theo để người chơi điều chỉnh.
+      if (isCrouching || state.squatPrimed || (squatValid && currentDepth >= SQUAT_TH * 0.5)) {
+        if (isCrouching) state.squatPrimed = true;
+        const preview = calcPreviewPower(currentDepth);
+        if (preview >= state.heldPower) {
+          state.heldPower = preview;
+          state.heldPowerAt = now;
+        } else if (now - state.heldPowerAt > HELD_DECAY_MS) {
+          state.heldPower += (preview - state.heldPower) * POWER_FALL;
+          if (state.heldPower < 0.5) state.heldPower = 0;
+        }
         setPoseState("CROUCHING");
-        const previewPower = calcPreviewPower(currentDepth);
-        state.currentPower = Math.max(state.currentPower, previewPower);
-        onPowerPreview?.(rampDisplayPower(previewPower));
+        state.displayPower = state.heldPower;
+        state.currentPower = state.heldPower;
+        onPowerPreview?.(Math.round(state.heldPower));
         return;
       }
 
-      if (currentDepth >= SQUAT_TH * 0.45) {
-        setPoseState("CROUCHING");
-        onPowerPreview?.(Math.round(state.displayPower));
-        return;
-      }
-
+      // Đứng / không hợp lệ: lực tụt mượt về 0.
       setPoseState("STANDING");
-      state.currentPower = 0;
-      state.displayPower = 0;
-      state.peakPower = 0;
-      onPowerPreview?.(0);
+      const shownStand = rampDisplayPower(0);
+      state.currentPower = shownStand;
+      onPowerPreview?.(shownStand);
+    }
+
+    function drawDebug(ctx, d) {
+      ctx.save();
+      ctx.fillStyle = "rgba(0,0,0,0.55)";
+      ctx.fillRect(4, 4, 158, 96);
+      ctx.font = "12px monospace";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "alphabetic";
+      const f = (v) => (v == null ? "--" : v.toFixed(2));
+      const lines = [
+        `depth: ${f(d.depth)}`,
+        `head : ${f(d.headDrop)}`,
+        `leg  : ${f(d.legSignal)}`,
+        `dip:${d.dip ? 1 : 0} sync:${d.sync ? 1 : 0} ok:${d.valid ? 1 : 0}`,
+        `power: ${d.power}`,
+      ];
+      lines.forEach((ln, i) => {
+        ctx.fillStyle = i === 3 ? "#FFD23E" : "#7CFFB2";
+        ctx.fillText(ln, 10, 22 + i * 16);
+      });
+      ctx.restore();
     }
 
     function drawSkeleton(results) {
@@ -443,6 +587,8 @@ const MicatcherTracking = (() => {
 
       const raw = results.poseLandmarks;
       if (!raw || !t) return;
+
+      if (DEBUG && state.debug) drawDebug(ctx, state.debug);
 
       const landmarks = smoothLandmarkFrame(raw);
       const subject = state.lastGoodSubject;
@@ -544,14 +690,16 @@ const MicatcherTracking = (() => {
     function resizeOverlay() {
       const box = videoEl.parentElement;
       if (!box) return;
-      const rect = box.getBoundingClientRect();
+      // Dùng kích thước LAYOUT (clientWidth/Height) — bất biến với CSS transform
+      // scale của kiosk. getBoundingClientRect() trả size SAU scale → nếu dùng nó
+      // backing canvas sẽ sai tỉ lệ và điểm tracking lệch khỏi người.
+      const w = box.clientWidth || box.offsetWidth || 1;
+      const h = box.clientHeight || box.offsetHeight || 1;
       const dpr = window.devicePixelRatio || 1;
-      const w = Math.max(1, Math.floor(rect.width * dpr));
-      const h = Math.max(1, Math.floor(rect.height * dpr));
-      overlayEl.width = w;
-      overlayEl.height = h;
-      overlayEl.style.width = `${rect.width}px`;
-      overlayEl.style.height = `${rect.height}px`;
+      overlayEl.width = Math.max(1, Math.round(w * dpr));
+      overlayEl.height = Math.max(1, Math.round(h * dpr));
+      // Hiển thị do CSS (.cam-overlay { width:100%; height:100% }) đảm nhiệm,
+      // không set style px ở đây để khỏi xung đột với layout đã scale.
       updateDisplayTransform();
     }
 

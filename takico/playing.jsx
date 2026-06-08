@@ -5,9 +5,8 @@ const { useState, useEffect, useRef, forwardRef, useImperativeHandle } = React;
 // stop line sits at this % across the lane; mascot starts here
 const LINE_X = 60;
 const START_X = 15;
-const OK_BLACK_IN = 450;   // ms chờ trước khi fade đen
-const OK_BLACK_HOLD = 550; // ms giữ màn đen
-const OK_DRIVE_AT = OK_BLACK_IN + OK_BLACK_HOLD;
+const GREEN_AT = 460;   // ms: dừng chuẩn → đèn chuyển xanh (crossfade cảnh)
+const DRIVE_AT = 820;   // ms: Takico bắt đầu chạy tiếp sau khi đèn xanh
 
 const PlayingScreen = forwardRef(function PlayingScreen(props, ref) {
   const {
@@ -44,7 +43,6 @@ const PlayingScreen = forwardRef(function PlayingScreen(props, ref) {
     green: bg,
   }));
   const round = roundBgs[(stage - 1) % roundBgs.length] || roundBgs[0];
-  const curBg = signal === 'green' ? round.green : round.red;
 
   const raf = useRef(0);
   const dir = useRef(1);
@@ -55,7 +53,13 @@ const PlayingScreen = forwardRef(function PlayingScreen(props, ref) {
   const timerIdRef = useRef(0);
   const keyboardChargeRef = useRef(false);
   const cameraPowerSmoothRef = useRef(0);
+  // Callback tracking được tạo 1 lần lúc mount → phải gọi press/release MỚI NHẤT
+  // qua ref, nếu không sẽ kẹt ở closure render đầu (stage 1, isFinal=false) khiến
+  // chơi camera không bao giờ thắng và chạy quá chặng 5.
+  const pressFnRef = useRef(null);
+  const releaseFnRef = useRef(null);
   phaseRef.current = phase; stageRef.current = stage; livesRef.current = lives;
+  pressFnRef.current = press; releaseFnRef.current = release;
 
   const isFinal = stage >= totalStages;
 
@@ -174,35 +178,33 @@ const PlayingScreen = forwardRef(function PlayingScreen(props, ref) {
     setPhase('result'); phaseRef.current = 'result';
     if (outcome === 'ok') {
       setToast({ cls: 'ok', text: 'DỪNG CHUẨN! 👏' });
-      // 1) fade đen — vẫn giữ nền đèn đỏ, Takico đứng tại vạch
-      setTimeout(() => setCutBlack(true), OK_BLACK_IN);
-      // 2) bật đèn xanh rồi Takico mới chạy tiếp
+      // 1) đèn chuyển XANH → cảnh crossfade mượt (không fade đen)
       setTimeout(() => {
         setSignal('green');
-        setCutBlack(false);
         setToast(isFinal ? { cls: 'ok', text: 'VỀ ĐÍCH! 🎉' } : null);
         setCamPose('go');
-        setMascotX(122);
-      }, OK_DRIVE_AT);
+      }, GREEN_AT);
+      // 2) Takico chạy tiếp sau khi đèn xanh
+      setTimeout(() => setMascotX(122), DRIVE_AT);
       if (isFinal) {
-        setTimeout(() => onWin(totalStages), OK_DRIVE_AT + 1200);
+        setTimeout(() => onWin(totalStages), DRIVE_AT + 1200);
         return;
       }
-      // 3) sang round kế — nền đèn đỏ round mới
+      // 3) sang round kế — cắt thẳng (snap) về nền đèn đỏ round mới
       setTimeout(() => {
         setSnap(true);
         setStage((s) => s + 1);
         setSignal('red');
         setMascotX(-24);
         setPower(0); powerRef.current = 0;
-      }, OK_DRIVE_AT + 1350);
+      }, DRIVE_AT + 1350);
       // 4) ride in from the left and begin the next chặng
       setTimeout(() => {
         setSnap(false);
         setMascotX(START_X);
         setCamPose('ready');
         setPhase('aim'); phaseRef.current = 'aim';
-      }, OK_DRIVE_AT + 1350 + 80);
+      }, DRIVE_AT + 1350 + 80);
     } else if (outcome === 'over') {
       setWhistle(true);
       loseLife('redlight', 'VƯỢT ĐÈN ĐỎ!');
@@ -234,13 +236,14 @@ const PlayingScreen = forwardRef(function PlayingScreen(props, ref) {
       },
       onPoseState(pose) {
         if (phaseRef.current === 'flying' || phaseRef.current === 'result') return;
-        if (pose === 'CROUCHING') setCamPose('charging');
+        if (pose === 'CALIBRATING') setCamPose('calibrating');
+        else if (pose === 'CROUCHING') setCamPose('charging');
         else if (pose === 'JUMP') setCamPose('go');
         else setCamPose('ready');
       },
       onPowerPreview(power) {
         if (phaseRef.current === 'flying' || phaseRef.current === 'result') return;
-        if (power > 0 && phaseRef.current === 'aim') press(true);
+        if (power > 0 && phaseRef.current === 'aim') pressFnRef.current(true);
         if (phaseRef.current === 'charging') {
           if (keyboardChargeRef.current) {
             if (power > powerRef.current) {
@@ -249,20 +252,20 @@ const PlayingScreen = forwardRef(function PlayingScreen(props, ref) {
             }
             return;
           }
-          // Camera: chỉ tăng, làm mượt — không dao động lên xuống
-          const target = Math.max(powerRef.current, power);
-          cameraPowerSmoothRef.current += (target - cameraPowerSmoothRef.current) * 0.28;
-          const next = Math.round(Math.max(powerRef.current, cameraPowerSmoothRef.current));
+          // Camera: bám theo lực từ engine (engine đã giữ đỉnh ngắn + giảm khi
+          // đứng lên), làm mượt để không giật — cho phép TĂNG và GIẢM.
+          cameraPowerSmoothRef.current += (power - cameraPowerSmoothRef.current) * 0.35;
+          const next = Math.round(cameraPowerSmoothRef.current);
           powerRef.current = next;
           setPower(next);
         }
       },
       onJumpPower(power) {
         if (phaseRef.current !== 'charging' && phaseRef.current !== 'aim') return;
-        if (phaseRef.current === 'aim') press(true);
+        if (phaseRef.current === 'aim') pressFnRef.current(true);
         powerRef.current = power;
         setPower(power);
-        release(power);
+        releaseFnRef.current(power);
       },
     });
     trackingRef.current = tracking;
@@ -300,12 +303,20 @@ const PlayingScreen = forwardRef(function PlayingScreen(props, ref) {
 
   return (
     <div className="play-world">
-      <div
-        className={'play-bg-single' + (signal === 'green' ? ' signal-green' : ' signal-red')}
-        style={{ backgroundImage: `url("${curBg}")` }}
-        aria-hidden="true"
-      />
-      <div className={'play-cut-black' + (cutBlack ? ' on' : '')} aria-hidden="true" />
+      {/* Hai lớp nền chồng nhau: đèn đỏ làm nền, đèn xanh crossfade lên trên
+          (mượt, không còn fade đen). Khi sang round mới (snap) thì cắt thẳng. */}
+      <div className="play-bg-layers" aria-hidden="true">
+        <div
+          className="play-bg-single play-bg-red"
+          style={{ backgroundImage: `url("${round.red}")` }}
+        />
+        <div
+          className={'play-bg-single play-bg-green'
+            + (signal === 'green' ? ' show' : '')
+            + (snap ? ' no-anim' : '')}
+          style={{ backgroundImage: `url("${round.green}")` }}
+        />
+      </div>
 
       {/* ── lane scene ── */}
       <div className="lane-scene">
@@ -386,7 +397,10 @@ const PlayingScreen = forwardRef(function PlayingScreen(props, ref) {
         </div>
         <div className={'cam-tag ' + camPose}>
           <span className="dot"></span>
-          {camPose === 'ready' ? 'ĐỨNG SẴN' : camPose === 'charging' ? 'ĐANG LẤY ĐÀ' : 'PHÓNG ĐI!'}
+          {camPose === 'calibrating' ? 'ĐANG HIỆU CHỈNH — ĐỨNG YÊN'
+            : camPose === 'ready' ? 'ĐỨNG SẴN'
+            : camPose === 'charging' ? 'ĐANG LẤY ĐÀ'
+            : 'PHÓNG ĐI!'}
         </div>
       </div>
 

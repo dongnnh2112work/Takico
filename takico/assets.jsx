@@ -95,10 +95,10 @@
 
   async function init() {
     const packId = window.TAKICO_PACK || 'honda-2026';
-    const url = `assets/packs/${packId}/manifest.json`;
+    const url = `assets/packs/${packId}/manifest.json?v=${Date.now()}`;
     let manifest;
     try {
-      const res = await fetch(url);
+      const res = await fetch(url, { cache: 'no-store' });
       if (!res.ok) throw new Error(res.statusText);
       manifest = await res.json();
     } catch (e) {
@@ -118,7 +118,7 @@
             { red: 'assets/backround/round2_red.png', green: 'assets/backround/round2_green.png' },
             { red: 'assets/backround/round3_red.png', green: 'assets/backround/round3_green.png' },
             { red: 'assets/backround/round4_red.png', green: 'assets/backround/round4_green.png' },
-            { red: 'assets/backround/round5_red.png', green: 'assets/backround/round5_green.png' },
+            { red: 'assets/Background%20V2/round5_red.jpeg', green: 'assets/Background%20V2/round5_green.jpeg' },
           ],
           props: {
             police: 'raw/Chú công an.png',

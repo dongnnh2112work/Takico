@@ -18,7 +18,7 @@
       { "red": "assets/backround/round2_red.png", "green": "assets/backround/round2_green.png" },
       { "red": "assets/backround/round3_red.png", "green": "assets/backround/round3_green.png" },
       { "red": "assets/backround/round4_red.png", "green": "assets/backround/round4_green.png" },
-      { "red": "assets/backround/round5_red.png", "green": "assets/backround/round5_green.png" }
+      { "red": "assets/Background%20V2/round5_red.jpeg", "green": "assets/Background%20V2/round5_green.jpeg" }
     ],
     "props": {
       "police": "raw/Chú công an.png",

@@ -39,20 +39,22 @@
 /* riding lane */
 .lane-scene { position: absolute; left: 0; right: 0; bottom: 0; top: 0; }
 /* full-scene backdrop — đèn đỏ/xanh baked trong assets/backround/ */
+.play-bg-layers { position: absolute; inset: 0; z-index: 0; }
 .play-bg-single {
-  position: absolute; inset: 0; z-index: 0;
+  position: absolute; inset: 0;
   background-position: center bottom;
   background-size: cover;
   background-repeat: no-repeat;
-  transition: background-image 0.45s ease;
 }
-.play-cut-black {
-  position: absolute; inset: 0; z-index: 20;
-  background: #050508;
-  opacity: 0; pointer-events: none;
-  transition: opacity 0.42s ease;
+/* lớp đèn đỏ là nền; lớp đèn xanh crossfade lên trên cho chuyển cảnh mượt */
+.play-bg-red { z-index: 0; }
+.play-bg-green {
+  z-index: 1; opacity: 0;
+  transition: opacity 0.85s ease;
+  will-change: opacity;
 }
-.play-cut-black.on { opacity: 1; }
+.play-bg-green.show { opacity: 1; }
+.play-bg-green.no-anim { transition: none; } /* cắt thẳng khi sang round mới */
 .play-bg-track {
   position: absolute; inset: 0; z-index: 0;
   display: flex; width: 200%; transform: translateX(0);
@@ -243,6 +245,9 @@
 .cam-tag.ready { background: var(--green); }
 .cam-tag.charging { background: var(--amber); }
 .cam-tag.go { background: var(--red); }
+.cam-tag.calibrating { background: var(--blue); font-size: 15px; }
+.cam-tag.calibrating .dot { animation: cam-blink 0.8s ease-in-out infinite; }
+@keyframes cam-blink { 0%,100%{ opacity: 1; } 50%{ opacity: 0.25; } }
 .cam-tag .dot { width: 12px; height: 12px; border-radius: 50%; background: #fff; }
 
 /* result toast */
