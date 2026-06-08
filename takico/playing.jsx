@@ -8,6 +8,39 @@ const START_X = 15;
 const GREEN_AT = 460;   // ms: dừng chuẩn → đèn chuyển xanh (crossfade cảnh)
 const DRIVE_AT = 820;   // ms: Takico bắt đầu chạy tiếp sau khi đèn xanh
 
+/* Thanh LỰC NHÚN tách riêng — tự giữ state lực, cập nhật qua ref (set) để
+   không kéo theo re-render toàn bộ PlayingScreen mỗi frame. */
+const PowerHud = forwardRef(function PowerHud({ band, phase, camLive, keyboardChargeRef }, ref) {
+  const [power, setPower] = useState(0);
+  useImperativeHandle(ref, () => ({ set: setPower }), []);
+  return (
+    <div className="power-hud">
+      <div className="ph-top">
+        <div className="ph-title">LỰC NHÚN</div>
+        <div className="ph-num">{Math.round(power)}</div>
+      </div>
+      <div className="power-track">
+        <div className="power-target" style={{ left: `${band.lo}%`, width: `${band.hi - band.lo}%` }}></div>
+        <div className="power-fill" style={{
+          width: `${power}%`,
+          transition: phase === 'charging'
+            ? (camLive && !keyboardChargeRef.current ? 'width 0.14s ease-out' : 'none')
+            : 'width .3s',
+        }}></div>
+      </div>
+      <div className="power-hint">
+        {phase === 'charging'
+          ? <>Thả ra khi lực vào <b>vùng xanh</b> để dừng đúng vạch</>
+          : phase === 'aim'
+            ? camLive
+              ? <>Nhún xuống lấy đà — <b>đứng lên</b> hoặc thả <b>SPACE</b> để phóng</>
+              : <>Giữ <b>SPACE</b> / chạm &amp; giữ để lấy đà — thả ra để phóng</>
+            : <>Takico đang chạy…</>}
+      </div>
+    </div>
+  );
+});
+
 const PlayingScreen = forwardRef(function PlayingScreen(props, ref) {
   const {
     totalStages,
@@ -21,7 +54,6 @@ const PlayingScreen = forwardRef(function PlayingScreen(props, ref) {
 
   const [stage, setStage] = useState(1);          // 1-indexed current chặng
   const [phase, setPhase] = useState('aim');       // aim | charging | flying | result
-  const [power, setPower] = useState(0);
   const [mascotX, setMascotX] = useState(START_X);
   const [timeLeft, setTimeLeft] = useState(timeLimitSec);
   const [lives, setLives] = useState(totalLives);
@@ -53,6 +85,14 @@ const PlayingScreen = forwardRef(function PlayingScreen(props, ref) {
   const timerIdRef = useRef(0);
   const keyboardChargeRef = useRef(false);
   const cameraPowerSmoothRef = useRef(0);
+  const powerBarRef = useRef(null);
+  // Cập nhật lực qua ref + component PowerHud riêng → KHÔNG re-render cả
+  // PlayingScreen mỗi frame khi nạp lực (giảm lag rõ rệt khi charging).
+  const setPower = (v) => {
+    powerRef.current = v;
+    const b = powerBarRef.current;
+    if (b) b.set(v);
+  };
   // Callback tracking được tạo 1 lần lúc mount → phải gọi press/release MỚI NHẤT
   // qua ref, nếu không sẽ kẹt ở closure render đầu (stage 1, isFinal=false) khiến
   // chơi camera không bao giờ thắng và chạy quá chặng 5.
@@ -60,6 +100,22 @@ const PlayingScreen = forwardRef(function PlayingScreen(props, ref) {
   const releaseFnRef = useRef(null);
   phaseRef.current = phase; stageRef.current = stage; livesRef.current = lives;
   pressFnRef.current = press; releaseFnRef.current = release;
+
+  // Preload + decode trước toàn bộ nền round (đã nhẹ ~150-280KB) → không khựng
+  // lúc crossfade đỏ→xanh hay snap sang round mới.
+  useEffect(() => {
+    const imgs = [];
+    roundBgs.forEach((r) => {
+      [r && r.red, r && r.green].forEach((src) => {
+        if (!src) return;
+        const img = new Image();
+        img.src = src;
+        if (img.decode) img.decode().catch(() => {});
+        imgs.push(img);
+      });
+    });
+    return () => { imgs.length = 0; };
+  }, []);
 
   const isFinal = stage >= totalStages;
 
@@ -404,31 +460,14 @@ const PlayingScreen = forwardRef(function PlayingScreen(props, ref) {
         </div>
       </div>
 
-      {/* ── power HUD ── */}
-      <div className="power-hud">
-        <div className="ph-top">
-          <div className="ph-title">LỰC NHÚN</div>
-          <div className="ph-num">{Math.round(power)}</div>
-        </div>
-        <div className="power-track">
-          <div className="power-target" style={{ left: `${band.lo}%`, width: `${band.hi - band.lo}%` }}></div>
-          <div className="power-fill" style={{
-            width: `${power}%`,
-            transition: phase === 'charging'
-              ? (camLive && !keyboardChargeRef.current ? 'width 0.14s ease-out' : 'none')
-              : 'width .3s',
-          }}></div>
-        </div>
-        <div className="power-hint">
-          {phase === 'charging'
-            ? <>Thả ra khi lực vào <b>vùng xanh</b> để dừng đúng vạch</>
-            : phase === 'aim'
-              ? camLive
-                ? <>Nhún xuống lấy đà — <b>đứng lên</b> hoặc thả <b>SPACE</b> để phóng</>
-                : <>Giữ <b>SPACE</b> / chạm &amp; giữ để lấy đà — thả ra để phóng</>
-              : <>Takico đang chạy…</>}
-        </div>
-      </div>
+      {/* ── power HUD (component riêng, cập nhật qua ref) ── */}
+      <PowerHud
+        ref={powerBarRef}
+        band={band}
+        phase={phase}
+        camLive={camLive}
+        keyboardChargeRef={keyboardChargeRef}
+      />
 
       {/* result toast */}
       {toast && <div className={'result-toast show ' + toast.cls}>{toast.text}</div>}

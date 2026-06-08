@@ -13,6 +13,7 @@ const MicatcherTracking = (() => {
   const HISTORY_SIZE = 10;
   const SQUAT_WINDOW_MS = 900;
   const CROUCH_HOLD_FRAMES = 6;
+  const DRAW_INTERVAL_MS = 33; // throttle vẽ skeleton overlay ~30fps (chỉ hình ảnh)
 
   // Bật readout debug bằng URL ?debug=1 (depth / headDrop / legSignal / power).
   const DEBUG = typeof location !== "undefined" && /[?&]debug=1/.test(location.search || "");
@@ -171,6 +172,7 @@ const MicatcherTracking = (() => {
       lastGoodSubject: null,
       displayTransform: null,
       smoothLandmarks: null,
+      lastDrawAt: 0,
       debug: null,
       pose: null,
       poseCamera: null,
@@ -209,22 +211,23 @@ const MicatcherTracking = (() => {
       state.debug = null;
     }
 
-    /** Làm mượt landmark overlay (face/shoulder ít giật). */
+    /** Làm mượt landmark overlay (face/shoulder ít giật) — mutate tại chỗ,
+        tránh cấp phát mảng/đối tượng mới mỗi frame. */
     function smoothLandmarkFrame(landmarks) {
       const alpha = 0.38;
-      if (!state.smoothLandmarks) {
+      const buf = state.smoothLandmarks;
+      if (!buf || buf.length !== landmarks.length) {
         state.smoothLandmarks = landmarks.map((p) => ({ x: p.x, y: p.y, visibility: p.visibility }));
         return state.smoothLandmarks;
       }
-      state.smoothLandmarks = landmarks.map((p, i) => {
-        const prev = state.smoothLandmarks[i] || { x: p.x, y: p.y };
-        return {
-          x: prev.x * (1 - alpha) + p.x * alpha,
-          y: prev.y * (1 - alpha) + p.y * alpha,
-          visibility: p.visibility,
-        };
-      });
-      return state.smoothLandmarks;
+      for (let i = 0; i < landmarks.length; i++) {
+        const p = landmarks[i];
+        const o = buf[i];
+        o.x = o.x * (1 - alpha) + p.x * alpha;
+        o.y = o.y * (1 - alpha) + p.y * alpha;
+        o.visibility = p.visibility;
+      }
+      return buf;
     }
 
     /** Map landmark → canvas pixel (cover crop, khớp video mirror CSS). */
@@ -659,8 +662,14 @@ const MicatcherTracking = (() => {
         minTrackingConfidence: 0.78,
       });
       pose.onResults((results) => {
+        // Logic phát hiện nhún chạy MỌI frame (giữ độ chính xác); chỉ vẽ overlay
+        // tối đa ~30fps để giảm tải GPU/CPU khi camera chạy nhanh hơn.
         processPoseResults(results);
-        drawSkeleton(results);
+        const now = performance.now();
+        if (now - state.lastDrawAt >= DRAW_INTERVAL_MS) {
+          state.lastDrawAt = now;
+          drawSkeleton(results);
+        }
       });
 
       const camera = new CameraCtor(videoEl, {

@@ -145,6 +145,15 @@ function Mascot3D({ orbit, fov, scale, className, style }) {
   const ref = React.useRef(null);
   const [ready, setReady] = React.useState(false);
   React.useEffect(() => {
+    // Lazy-load module model-viewer (≈ vài trăm KB) chỉ khi thực sự cần render
+    // mascot 3D — không nạp eager lúc mở app.
+    if (!document.getElementById('mv-module')) {
+      const s = document.createElement('script');
+      s.id = 'mv-module';
+      s.type = 'module';
+      s.src = 'https://unpkg.com/@google/model-viewer@3.5.0/dist/model-viewer.min.js';
+      document.head.appendChild(s);
+    }
     const mv = ref.current;
     if (!mv) return;
     if (mv.loaded) { setReady(true); return; }
