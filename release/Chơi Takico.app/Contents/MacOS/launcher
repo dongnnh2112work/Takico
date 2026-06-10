@@ -1,0 +1,5 @@
+#!/bin/bash
+# Entry point .app — không mở Terminal, server chạy foreground trong process app
+APP_BUNDLE="$(cd "$(dirname "$0")/../.." && pwd)"
+export TAKICO_ROOT="$(cd "$APP_BUNDLE/.." && pwd)"
+exec bash "$TAKICO_ROOT/takico-serve.sh"

@@ -1,0 +1,2 @@
+/* Ẩn thanh dev nav khi chạy bản offline / sự kiện */
+.dev-nav { display: none !important; }
