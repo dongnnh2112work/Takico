@@ -8,6 +8,11 @@ SRC="$ROOT/server/main.go"
 LDFLAGS="-s -w"
 
 if ! command -v go >/dev/null 2>&1; then
+  if [[ -x "$OUT/takico-server" ]] && [[ -f "$OUT/takico-server.exe" ]]; then
+    echo "==> Dùng server binary có sẵn (không có Go để build mới)"
+    ls -lh "$OUT/takico-server" "$OUT/takico-server.exe"
+    exit 0
+  fi
   echo "ERROR: Cần Go để build server. Cài: brew install go"
   exit 1
 fi

@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ĐI CÙNG TAKICO — Tải game</title>
+  <style>
+    :root {
+      --bg: #f6f5f3;
+      --card: #fff;
+      --text: #1a1a1a;
+      --muted: #666;
+      --line: #e4e2de;
+      --accent: #c41e3a;
+      --accent-hover: #a01830;
+      --win: #0078d4;
+      --mac: #555;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.55;
+      min-height: 100vh;
+    }
+    .wrap {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 2.5rem 1.25rem 3rem;
+    }
+    header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    header h1 {
+      font-size: 1.65rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+    header p {
+      color: var(--muted);
+      font-size: 0.95rem;
+      margin-top: 0.35rem;
+    }
+    .cards {
+      display: grid;
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+    @media (min-width: 560px) {
+      .cards { grid-template-columns: 1fr 1fr; }
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 1.25rem;
+    }
+    .card .platform {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-weight: 600;
+      font-size: 1.05rem;
+      margin-bottom: 0.5rem;
+    }
+    .card .platform .icon {
+      width: 22px;
+      height: 22px;
+      border-radius: 5px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      color: #fff;
+      font-weight: 700;
+    }
+    .win .icon { background: var(--win); }
+    .mac .icon { background: var(--mac); }
+    .card .meta {
+      font-size: 0.82rem;
+      color: var(--muted);
+      margin-bottom: 1rem;
+    }
+    .btn {
+      display: block;
+      width: 100%;
+      text-align: center;
+      padding: 0.65rem 1rem;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      text-decoration: none;
+      border: none;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .btn-download {
+      background: var(--accent);
+      color: #fff;
+    }
+    .btn-download:hover { background: var(--accent-hover); }
+    .btn-guide {
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--line);
+      margin-top: 0.5rem;
+    }
+    .btn-guide:hover { background: var(--bg); }
+    .note {
+      font-size: 0.82rem;
+      color: var(--muted);
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 0.85rem 1rem;
+      margin-bottom: 2rem;
+    }
+    .guide {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      margin-bottom: 1rem;
+      overflow: hidden;
+    }
+    .guide summary {
+      padding: 1rem 1.25rem;
+      font-weight: 600;
+      cursor: pointer;
+      list-style: none;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .guide summary::-webkit-details-marker { display: none; }
+    .guide summary::after {
+      content: "+";
+      font-size: 1.2rem;
+      color: var(--muted);
+      font-weight: 400;
+    }
+    .guide[open] summary::after { content: "−"; }
+    .guide .body {
+      padding: 0 1.25rem 1.25rem;
+      font-size: 0.88rem;
+      color: #333;
+      border-top: 1px solid var(--line);
+    }
+    .guide .body h3 {
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+      margin: 1rem 0 0.4rem;
+    }
+    .guide .body h3:first-child { margin-top: 1rem; }
+    .guide .body ol, .guide .body ul {
+      padding-left: 1.2rem;
+    }
+    .guide .body li { margin-bottom: 0.25rem; }
+    .guide .body table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.84rem;
+      margin-top: 0.35rem;
+    }
+    .guide .body th, .guide .body td {
+      text-align: left;
+      padding: 0.35rem 0.5rem;
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+    }
+    .guide .body th { color: var(--muted); font-weight: 500; width: 38%; }
+    .guide .body code {
+      background: var(--bg);
+      padding: 0.1rem 0.35rem;
+      border-radius: 4px;
+      font-size: 0.82rem;
+    }
+    footer {
+      text-align: center;
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-top: 2rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>ĐI CÙNG TAKICO</h1>
+      <p>Game kiosk offline · Honda HEAD Tân Kiều · Howls Studio</p>
+    </header>
+
+    <!--
+      THAY LINK TẢI: tìm DOWNLOAD_WINDOWS và DOWNLOAD_MACOS bên dưới.
+      Google Drive: Share → Anyone with link → copy link dạng
+      https://drive.google.com/uc?export=download&id=FILE_ID
+    -->
+    <div class="cards">
+      <div class="card win">
+        <div class="platform"><span class="icon">W</span> Windows</div>
+        <p class="meta">Windows 10/11 · 64-bit · ~74 MB · 3 chặng/game</p>
+        <a class="btn btn-download" id="dl-win" href="DOWNLOAD_WINDOWS">Tải bản Windows</a>
+        <a class="btn btn-guide" href="#guide-win">Hướng dẫn sử dụng</a>
+      </div>
+      <div class="card mac">
+        <div class="platform"><span class="icon">M</span> macOS</div>
+        <p class="meta">macOS 11+ · ~74 MB · 3 chặng/game</p>
+        <a class="btn btn-download" id="dl-mac" href="DOWNLOAD_MACOS">Tải bản macOS</a>
+        <a class="btn btn-guide" href="#guide-mac">Hướng dẫn sử dụng</a>
+      </div>
+    </div>
+
+    <p class="note">
+      Sau khi tải, giải nén và <strong>copy nguyên thư mục</strong> (USB, Desktop, máy booth).
+      Không cần cài Python, Node hay Internet khi chơi. Cần webcam + Chrome/Edge.
+    </p>
+
+    <details class="guide" id="guide-win">
+      <summary>Hướng dẫn Windows</summary>
+      <div class="body">
+        <h3>Nội dung gói</h3>
+        <table>
+          <tr><th>Play Takico.bat</th><td>Double-click để chơi</td></tr>
+          <tr><th>Stop Takico.bat</th><td>Thoát game</td></tr>
+          <tr><th>_game</th><td>Dữ liệu game — không xóa/đổi tên (có thể bị ẩn)</td></tr>
+          <tr><th>GUIDE.md</th><td>Hướng dẫn chi tiết</td></tr>
+        </table>
+
+        <h3>Bắt đầu</h3>
+        <ol>
+          <li>Double-click <code>Play Takico.bat</code></li>
+          <li>SmartScreen cảnh báo → <strong>More info</strong> → <strong>Run anyway</strong></li>
+          <li>Cho phép <strong>Camera</strong> trong Chrome/Edge</li>
+          <li>Chạm màn hình chờ hoặc nhấn <strong>SPACE</strong> để bắt đầu</li>
+        </ol>
+
+        <h3>Thoát / chơi lại</h3>
+        <table>
+          <tr><th>Thoát</th><td>Chạy <code>Stop Takico.bat</code> hoặc đóng cửa sổ Takico Server</td></tr>
+          <tr><th>Chơi lại</th><td>Chạy lại <code>Play Takico.bat</code></td></tr>
+        </table>
+
+        <h3>Yêu cầu</h3>
+        <ul>
+          <li>Windows 10/11 (64-bit), Chrome hoặc Edge, webcam</li>
+          <li>Không cần Internet sau khi copy gói</li>
+        </ul>
+
+        <h3>Booth / kiosk</h3>
+        <ul>
+          <li>Camera cách người chơi <strong>1,5–2,5 m</strong></li>
+          <li>Tắt chế độ ngủ màn hình trong sự kiện</li>
+        </ul>
+
+        <h3>Xử lý lỗi</h3>
+        <table>
+          <tr><th>.bat không chạy</th><td>Chạy quyền admin; kiểm tra antivirus</td></tr>
+          <tr><th>Missing _game</th><td>Copy lại <strong>nguyên thư mục windows</strong></td></tr>
+          <tr><th>Lỗi camera</th><td>Chrome → biểu tượng khóa → Camera → Allow</td></tr>
+          <tr><th>Port 8765 bận</th><td>Chạy Stop Takico.bat rồi mở lại</td></tr>
+        </table>
+      </div>
+    </details>
+
+    <details class="guide" id="guide-mac">
+      <summary>Hướng dẫn macOS</summary>
+      <div class="body">
+        <h3>Nội dung gói</h3>
+        <table>
+          <tr><th>Play Takico.app</th><td>Double-click để chơi</td></tr>
+          <tr><th>GUIDE.md</th><td>Hướng dẫn chi tiết</td></tr>
+          <tr><th>VERSION.txt</th><td>Thông tin bản build</td></tr>
+        </table>
+        <p style="margin-top:0.5rem">Toàn bộ dữ liệu game nằm <strong>trong</strong> <code>Play Takico.app</code> — không mở/sửa file bên trong.</p>
+
+        <h3>Bắt đầu</h3>
+        <ol>
+          <li>Double-click <code>Play Takico.app</code></li>
+          <li>Lần đầu (Gatekeeper): Right-click → <strong>Open</strong> → <strong>Open</strong></li>
+          <li>Hoặc Terminal: <code>xattr -cr /đường/dẫn/tới/macos</code> rồi mở lại</li>
+          <li>Cho phép <strong>Camera</strong> khi trình duyệt hỏi</li>
+          <li>Chạm màn hình chờ hoặc nhấn <strong>SPACE</strong></li>
+        </ol>
+
+        <h3>Thoát / chơi lại</h3>
+        <table>
+          <tr><th>Thoát</th><td><strong>Cmd+Q</strong> hoặc menu Play Takico → Quit</td></tr>
+          <tr><th>Chơi lại</th><td>Double-click <code>Play Takico.app</code></td></tr>
+        </table>
+
+        <h3>Yêu cầu</h3>
+        <ul>
+          <li>macOS 11+, Chrome / Edge / Safari, webcam</li>
+          <li>Không cần Internet sau khi copy gói</li>
+        </ul>
+
+        <h3>Booth / kiosk</h3>
+        <ul>
+          <li>Camera cách người chơi <strong>1,5–2,5 m</strong>, tránh ngược sáng</li>
+          <li>Một người trong khung hình; tắt ngủ màn hình</li>
+        </ul>
+
+        <h3>Xử lý lỗi</h3>
+        <table>
+          <tr><th>App không mở</th><td>Right-click → Open; hoặc <code>xattr -cr</code> trên thư mục macos</td></tr>
+          <tr><th>"App is damaged"</th><td>Chạy <code>xattr -cr</code>; chỉ mở qua <code>Play Takico.app</code></td></tr>
+          <tr><th>Lỗi camera</th><td>Chrome → biểu tượng khóa → Camera → Allow</td></tr>
+        </table>
+      </div>
+    </details>
+
+    <footer>Howls Studio · Honda HEAD Tân Kiều · ĐI CÙNG TAKICO</footer>
+  </div>
+
+  <script>
+    // Thay 2 dòng dưới bằng link Google Drive (hoặc link tải trực tiếp)
+    const DOWNLOAD_WINDOWS = "DOWNLOAD_WINDOWS";
+    const DOWNLOAD_MACOS   = "DOWNLOAD_MACOS";
+
+    document.getElementById("dl-win").href = DOWNLOAD_WINDOWS;
+    document.getElementById("dl-mac").href = DOWNLOAD_MACOS;
+
+    document.querySelectorAll('a[href^="#guide-"]').forEach(function (a) {
+      a.addEventListener("click", function (e) {
+        var id = a.getAttribute("href").slice(1);
+        var el = document.getElementById(id);
+        if (el) {
+          e.preventDefault();
+          el.open = true;
+          el.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      });
+    });
+  </script>
+</body>
+</html>

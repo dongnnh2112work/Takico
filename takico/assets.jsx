@@ -86,7 +86,7 @@
     ready: false,
     packId: null,
     manifest: null,
-    GAME: { totalStages: 5, totalLives: 3, timeLimitSec: 60 },
+    GAME: { totalStages: 3, totalLives: 3, timeLimitSec: 60 },
     A: {},
     norm,
     knockoutWhite,
@@ -105,7 +105,7 @@
       console.error('[TAK] manifest load failed:', url, e);
       manifest = {
         id: packId,
-        game: { totalStages: 5, totalLives: 3, timeLimitSec: 60 },
+        game: { totalStages: 3, totalLives: 3, timeLimitSec: 60 },
         assets: {
           logo: 'assets/logo-takico.png',
           mascotFront: 'assets/opt/mascot-ride.webp',
@@ -115,8 +115,6 @@
           keyvisual: 'assets/keyvisual-26.png',
           roundBackgrounds: [
             { red: 'assets/opt/round1_red.webp', green: 'assets/opt/round1_green.webp' },
-            { red: 'assets/opt/round2_red.webp', green: 'assets/opt/round2_green.webp' },
-            { red: 'assets/opt/round3_red.webp', green: 'assets/opt/round3_green.webp' },
             { red: 'assets/opt/round4_red.webp', green: 'assets/opt/round4_green.webp' },
             { red: 'assets/opt/round5_red.webp', green: 'assets/opt/round5_green.webp' },
           ],
@@ -131,6 +129,8 @@
     window.TAK.packId = manifest.id || packId;
     window.TAK.manifest = manifest;
     window.TAK.GAME = { ...window.TAK.GAME, ...manifest.game };
+    const roundCount = manifest.assets?.roundBackgrounds?.length;
+    if (roundCount) window.TAK.GAME.totalStages = roundCount;
     window.TAK.A = flatAssets(manifest);
     window.TAK.ready = true;
     window.dispatchEvent(new Event('tak-ready'));

@@ -2,7 +2,7 @@
   "id": "honda-2026",
   "label": "Honda HEAD Tân Kiều — Đi Cùng Takico",
   "game": {
-    "totalStages": 5,
+    "totalStages": 3,
     "totalLives": 3,
     "timeLimitSec": 60
   },
@@ -15,8 +15,6 @@
     "keyvisual": "assets/keyvisual-26.png",
     "roundBackgrounds": [
       { "red": "assets/opt/round1_red.webp", "green": "assets/opt/round1_green.webp" },
-      { "red": "assets/opt/round2_red.webp", "green": "assets/opt/round2_green.webp" },
-      { "red": "assets/opt/round3_red.webp", "green": "assets/opt/round3_green.webp" },
       { "red": "assets/opt/round4_red.webp", "green": "assets/opt/round4_green.webp" },
       { "red": "assets/opt/round5_red.webp", "green": "assets/opt/round5_green.webp" }
     ],

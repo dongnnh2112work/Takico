@@ -3,13 +3,24 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-LOGO="$ROOT/assets/logo-takico.png"
+LOGO="${LOGO:-$ROOT/assets/logo-takico.png}"
 SQUARE="$ROOT/release/logo-square.png"
 ICONSET="$ROOT/release/AppIcon.iconset"
 ICNS="$ROOT/release/applet.icns"
 
 echo "==> Tạo icon app từ logo Takico"
 
+if [[ ! -f "$LOGO" ]]; then
+  if [[ -f "$SQUARE" ]]; then
+    echo "    Dùng logo-square.png có sẵn"
+  elif [[ -f "$ROOT/assets/opt/thumb.webp" ]]; then
+    python3 -c "from PIL import Image; Image.open('$ROOT/assets/opt/thumb.webp').convert('RGBA').save('$SQUARE')"
+    echo "    Tạo logo từ thumb.webp"
+  else
+    echo "    Bỏ qua — không tìm thấy logo"
+    exit 0
+  fi
+else
 export LOGO SQUARE
 python3 <<'PY'
 import os
@@ -26,6 +37,11 @@ canvas.paste(im, ((s - w) // 2, (s - h) // 2), im)
 canvas.save(square, "PNG")
 print(f"    {w}x{h} -> {s}x{s} (vuông, nền trong suốt)")
 PY
+fi
+
+if [[ ! -f "$SQUARE" ]]; then
+  exit 0
+fi
 
 rm -rf "$ICONSET"
 mkdir -p "$ICONSET"
