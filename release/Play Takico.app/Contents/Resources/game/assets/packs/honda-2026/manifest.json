@@ -1,0 +1,27 @@
+{
+  "id": "honda-2026",
+  "label": "Honda HEAD Tân Kiều — Đi Cùng Takico",
+  "game": {
+    "totalStages": 3,
+    "totalLives": 3,
+    "timeLimitSec": 60
+  },
+  "assets": {
+    "logo": "assets/logo-takico.png",
+    "mascotFront": "assets/opt/mascot-ride.webp",
+    "mascotSide": "assets/opt/mascot-ride-side.webp",
+    "idleBackground": "assets/opt/thumb.webp",
+    "characterGlb": "assets/character.glb",
+    "keyvisual": "assets/keyvisual-26.png",
+    "roundBackgrounds": [
+      { "red": "assets/opt/round1_red.webp", "green": "assets/opt/round1_green.webp" },
+      { "red": "assets/opt/round4_red.webp", "green": "assets/opt/round4_green.webp" },
+      { "red": "assets/opt/round5_red.webp", "green": "assets/opt/round5_green.webp" }
+    ],
+    "props": {
+      "police": "raw/Chú công an.png",
+      "trafficLight": "raw/Đèn giao thông.png",
+      "dealer": "raw/Đại lí Takico.jpg"
+    }
+  }
+}

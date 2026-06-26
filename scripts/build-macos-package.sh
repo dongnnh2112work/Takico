@@ -57,8 +57,12 @@ EOF
 
 xattr -cr "$OUT" 2>/dev/null || true
 
-"$ROOT/scripts/make-macos-app.sh" "$RELEASE/Play Takico.app"
-"$ROOT/scripts/sign-macos-app.sh" "$RELEASE/Play Takico.app"
+cp "$RELEASE/open-takico.command" "$OUT/Open Takico.command"
+chmod +x "$OUT/Open Takico.command"
+
+rm -rf "$RELEASE/Play Takico.app"
+cp -R "$APP" "$RELEASE/Play Takico.app"
+xattr -cr "$RELEASE/Play Takico.app" 2>/dev/null || true
 
 echo ""
 echo "✓ macOS package: $OUT"

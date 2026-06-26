@@ -3,11 +3,12 @@
 **Portable:** Copy the entire `macos` folder anywhere (USB, Desktop, another Mac).  
 No repo, Python, Node, or Internet required.
 
-After copying, you only need **3 items**:
+After copying, you only need **4 items**:
 
 | | |
 |---|---|
 | **Play Takico.app** | Double-click to play |
+| **Open Takico.command** | Use if macOS says app is damaged (first launch) |
 | **GUIDE.md** | This file |
 | **VERSION.txt** | Build info |
 
@@ -18,10 +19,11 @@ All game data is **inside** `Play Takico.app` — do not open or edit files insi
 ## Start
 
 1. Double-click **`Play Takico.app`**
-2. **First launch** (Gatekeeper): Right-click → **Open** → **Open**
-3. Or Terminal: `xattr -cr /path/to/macos` then open the app again
-4. Allow **Camera** when the browser asks
-5. Tap the idle screen or press **SPACE** to start
+2. If macOS says **damaged** or won't open → double-click **`Open Takico.command`** once, then try the app again
+3. **First launch** (Gatekeeper): Right-click → **Open** → **Open**
+4. Or Terminal: `xattr -cr /path/to/macos` then open the app again
+5. Allow **Camera** when the browser asks
+6. Tap the idle screen or press **SPACE** to start
 
 ## Quit / restart
 
@@ -48,8 +50,8 @@ All game data is **inside** `Play Takico.app` — do not open or edit files insi
 
 | Issue | Fix |
 |-------|-----|
-| App won't open | Right-click → **Open**; or `xattr -cr` on the macos folder |
-| "App is damaged" | Run `xattr -cr`; open via **Play Takico.app** only |
+| App won't open | Run **`Open Takico.command`**; or Right-click → **Open**; or `xattr -cr` on the macos folder |
+| "App is damaged" | Double-click **`Open Takico.command`**; or Terminal: `xattr -cr /path/to/macos` |
 | Camera error | Chrome → lock icon → Camera → **Allow** |
 
 ---

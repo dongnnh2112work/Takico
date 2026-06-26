@@ -1,0 +1,73 @@
+/* ════════════════════════════════════════════════════════════════
+   ĐI CÙNG TAKICO — World backdrop (ref match)
+   Bright blue sky · hazy futuristic skyline · sweeping highway with
+   long-exposure RED light-trail streaks. The signature mood layer.
+   ════════════════════════════════════════════════════════════════ */
+
+.world { position: absolute; inset: 0; overflow: hidden; }
+
+/* sky: vivid cerulean → soft warm haze at the horizon */
+.world-sky {
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(120% 80% at 50% 92%, #FFE7CE 0%, rgba(255,231,206,0) 42%),
+    linear-gradient(180deg, #1E83D6 0%, #3DA0E8 26%, #74C2F2 52%, #BFE3F7 70%, #E9F4FB 78%);
+}
+/* sun bloom near horizon */
+.world-bloom {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%);
+  width: 1100px; height: 460px;
+  background: radial-gradient(60% 70% at 50% 50%, rgba(255,243,214,0.9) 0%, rgba(255,221,170,0.45) 35%, rgba(255,221,170,0) 70%);
+  filter: blur(6px);
+}
+
+/* clouds */
+.world .cloud {
+  position: absolute; background: #fff; border-radius: 999px;
+  filter: drop-shadow(0 14px 18px rgba(120,160,200,0.16));
+  opacity: 0.96;
+}
+.world .cloud::before, .world .cloud::after { content: ""; position: absolute; background: #fff; border-radius: 50%; }
+.world .cloud::before { width: 70%; height: 170%; top: -60%; left: 8%; }
+.world .cloud::after  { width: 52%; height: 150%; top: -44%; right: 10%; }
+.world .cloud.c1 { width: 220px; height: 60px; top: 12%; left: 8%;  animation: drift 30s ease-in-out infinite; }
+.world .cloud.c2 { width: 160px; height: 48px; top: 8%;  left: 40%; animation: drift 38s ease-in-out infinite reverse; }
+.world .cloud.c3 { width: 200px; height: 56px; top: 18%; left: 70%; animation: drift 34s ease-in-out infinite; }
+@keyframes drift { 0%,100% { transform: translateX(-26px); } 50% { transform: translateX(26px); } }
+
+/* hazy skyline (SVG injected) sits behind the road, above horizon */
+.world-skyline { position: absolute; left: 0; right: 0; bottom: 34%; height: 360px; opacity: 0.9; }
+.world-skyline svg { width: 100%; height: 100%; display: block; }
+
+/* green tree band along horizon */
+.world-verge {
+  position: absolute; left: 0; right: 0; bottom: 33%; height: 70px;
+  background:
+    radial-gradient(14px 16px at 14px 18px, #3F9B52 70%, transparent 72%) repeat-x;
+  background-size: 30px 36px;
+  opacity: 0.0; /* drawn inside skyline svg instead */
+}
+
+/* ── HIGHWAY + LIGHT TRAILS (SVG injected) ─────────────────── */
+.world-road { position: absolute; left: 0; right: 0; bottom: 0; top: 46%; }
+.world-road svg { width: 100%; height: 100%; display: block; }
+
+/* subtle vignette to seat foreground props */
+.world-vignette {
+  position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(120% 90% at 50% 40%, transparent 55%, rgba(20,40,70,0.12) 100%);
+}
+
+/* ── Mascot3D (live model-viewer) ── */
+.mascot3d { position: relative; width: 100%; height: 100%; }
+.mascot3d model-viewer { --poster-color: transparent; }
+.mascot3d-shimmer {
+  position: absolute; inset: 0; display: grid; place-items: center; z-index: 2;
+}
+.m3-ring {
+  width: 64px; height: 64px; border-radius: 50%;
+  border: 6px solid rgba(228,0,43,0.25); border-top-color: var(--red);
+  animation: m3spin 0.9s linear infinite;
+}
+@keyframes m3spin { to { transform: rotate(360deg); } }
+

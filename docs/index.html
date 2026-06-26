@@ -271,6 +271,7 @@
         <h3>Nội dung gói</h3>
         <table>
           <tr><th>Play Takico.app</th><td>Double-click để chơi</td></tr>
+          <tr><th>Open Takico.command</th><td>Chạy 1 lần nếu macOS báo app bị damaged</td></tr>
           <tr><th>GUIDE.md</th><td>Hướng dẫn chi tiết</td></tr>
           <tr><th>VERSION.txt</th><td>Thông tin bản build</td></tr>
         </table>
@@ -279,6 +280,7 @@
         <h3>Bắt đầu</h3>
         <ol>
           <li>Double-click <code>Play Takico.app</code></li>
+          <li>Báo <strong>damaged</strong> → chạy <code>Open Takico.command</code> một lần, rồi mở app lại</li>
           <li>Lần đầu (Gatekeeper): Right-click → <strong>Open</strong> → <strong>Open</strong></li>
           <li>Hoặc Terminal: <code>xattr -cr /đường/dẫn/tới/macos</code> rồi mở lại</li>
           <li>Cho phép <strong>Camera</strong> khi trình duyệt hỏi</li>
@@ -305,8 +307,8 @@
 
         <h3>Xử lý lỗi</h3>
         <table>
-          <tr><th>App không mở</th><td>Right-click → Open; hoặc <code>xattr -cr</code> trên thư mục macos</td></tr>
-          <tr><th>"App is damaged"</th><td>Chạy <code>xattr -cr</code>; chỉ mở qua <code>Play Takico.app</code></td></tr>
+          <tr><th>App không mở</th><td>Chạy <code>Open Takico.command</code>; Right-click → Open; hoặc <code>xattr -cr</code></td></tr>
+          <tr><th>"App is damaged"</th><td>Chạy <code>Open Takico.command</code> hoặc <code>xattr -cr /đường/dẫn/macos</code></td></tr>
           <tr><th>Lỗi camera</th><td>Chrome → biểu tượng khóa → Camera → Allow</td></tr>
         </table>
       </div>
