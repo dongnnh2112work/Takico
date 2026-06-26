@@ -21,10 +21,13 @@ cp "$ROOT/release/launch.sh" "$APP/Contents/Resources/launch.sh"
 chmod +x "$APP/Contents/Resources/launch.sh"
 
 LAUNCHER="$APP/Contents/MacOS/launcher"
-if cc -O2 -Wall -Wextra -arch arm64 -arch x86_64 -o "$LAUNCHER" "$ROOT/release/launcher.c" 2>/dev/null; then
-  echo "    Native launcher (Mach-O universal)"
-elif cc -O2 -Wall -Wextra -o "$LAUNCHER" "$ROOT/release/launcher.c" 2>/dev/null; then
-  echo "    Native launcher (Mach-O)"
+# Match takico-server (min macOS 12) and support Intel + Apple Silicon
+MACOSX_MIN="12.0"
+CC_FLAGS=(-O2 -Wall -Wextra -mmacosx-version-min="$MACOSX_MIN")
+if cc "${CC_FLAGS[@]}" -arch arm64 -arch x86_64 -o "$LAUNCHER" "$ROOT/release/launcher.c" 2>/dev/null; then
+  echo "    Native launcher (Mach-O universal, min macOS $MACOSX_MIN)"
+elif cc "${CC_FLAGS[@]}" -o "$LAUNCHER" "$ROOT/release/launcher.c" 2>/dev/null; then
+  echo "    Native launcher (Mach-O, min macOS $MACOSX_MIN)"
 else
   echo "WARN: cc failed — fallback bash launcher in MacOS/"
   cp "$ROOT/release/launch.sh" "$LAUNCHER"

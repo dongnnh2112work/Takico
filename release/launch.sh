@@ -24,7 +24,8 @@ fi
 
 bash "$GAME/takico-start.sh" || exit 1
 
-PID_FILE="$GAME/.takico-server.pid"
+RUNTIME_DIR="$(cd "$APP_ROOT/.." && pwd)"
+PID_FILE="$RUNTIME_DIR/.takico-server.pid"
 if [[ -f "$PID_FILE" ]]; then
   PID="$(cat "$PID_FILE")"
   while kill -0 "$PID" 2>/dev/null; do

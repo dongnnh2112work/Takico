@@ -207,7 +207,7 @@
       </div>
       <div class="card mac">
         <div class="platform"><span class="icon">M</span> macOS</div>
-        <p class="meta">macOS 11+ · ~74 MB · 3 chặng/game</p>
+        <p class="meta">macOS 12+ · ~74 MB · 3 chặng/game</p>
         <a class="btn btn-download" id="dl-mac" href="https://drive.google.com/uc?export=download&id=1EJq0eqr13ymJ8i-cgnW4dbWKafdF-vQj">Tải bản macOS</a>
         <a class="btn btn-guide" href="#guide-mac">Hướng dẫn sử dụng</a>
       </div>
@@ -215,6 +215,7 @@
 
     <p class="note">
       Sau khi tải, giải nén và <strong>copy nguyên thư mục</strong> (USB, Desktop, máy booth).
+      Sau khi tải, giải nén. <strong>macOS:</strong> đọc <code>0 - DOC TRUOC KHI CHOI.txt</code> — chuột phải <code>Play Takico.command</code> → Open (lần đầu).
       Không cần cài Python, Node hay Internet khi chơi. Cần webcam + Chrome/Edge.
     </p>
 
@@ -270,32 +271,28 @@
       <div class="body">
         <h3>Nội dung gói</h3>
         <table>
-          <tr><th>Play Takico.app</th><td>Double-click để chơi</td></tr>
-          <tr><th>Open Takico.command</th><td>Chạy 1 lần nếu macOS báo app bị damaged</td></tr>
-          <tr><th>GUIDE.md</th><td>Hướng dẫn chi tiết</td></tr>
-          <tr><th>VERSION.txt</th><td>Thông tin bản build</td></tr>
+          <tr><th>Play Takico.command</th><td><strong>File duy nhất</strong> cần bấm để chơi</td></tr>
+          <tr><th>_takico</th><td>Dữ liệu game (ẩn) — không xóa</td></tr>
         </table>
-        <p style="margin-top:0.5rem">Toàn bộ dữ liệu game nằm <strong>trong</strong> <code>Play Takico.app</code> — không mở/sửa file bên trong.</p>
 
         <h3>Bắt đầu</h3>
         <ol>
-          <li>Double-click <code>Play Takico.app</code></li>
-          <li>Báo <strong>damaged</strong> → chạy <code>Open Takico.command</code> một lần, rồi mở app lại</li>
-          <li>Lần đầu (Gatekeeper): Right-click → <strong>Open</strong> → <strong>Open</strong></li>
-          <li>Hoặc Terminal: <code>xattr -cr /đường/dẫn/tới/macos</code> rồi mở lại</li>
-          <li>Cho phép <strong>Camera</strong> khi trình duyệt hỏi</li>
+          <li>Giải nén <code>macos.zip</code></li>
+          <li>Lần đầu sau Drive: <strong>chuột phải</strong> <code>Play Takico.command</code> → <strong>Open</strong> → <strong>Open</strong></li>
+          <li>Các lần sau: double-click <code>Play Takico.command</code></li>
+          <li>Cho phép <strong>Camera</strong> trong Chrome/Edge</li>
           <li>Chạm màn hình chờ hoặc nhấn <strong>SPACE</strong></li>
         </ol>
 
         <h3>Thoát / chơi lại</h3>
         <table>
-          <tr><th>Thoát</th><td><strong>Cmd+Q</strong> hoặc menu Play Takico → Quit</td></tr>
-          <tr><th>Chơi lại</th><td>Double-click <code>Play Takico.app</code></td></tr>
+          <tr><th>Thoát</th><td><strong>Cmd+Q</strong> trên trình duyệt</td></tr>
+          <tr><th>Chơi lại</th><td>Double-click <code>Play Takico.command</code></td></tr>
         </table>
 
         <h3>Yêu cầu</h3>
         <ul>
-          <li>macOS 11+, Chrome / Edge / Safari, webcam</li>
+          <li>macOS 12+, Chrome / Edge / Safari, webcam</li>
           <li>Không cần Internet sau khi copy gói</li>
         </ul>
 
@@ -307,8 +304,8 @@
 
         <h3>Xử lý lỗi</h3>
         <table>
-          <tr><th>App không mở</th><td>Chạy <code>Open Takico.command</code>; Right-click → Open; hoặc <code>xattr -cr</code></td></tr>
-          <tr><th>"App is damaged"</th><td>Chạy <code>Open Takico.command</code> hoặc <code>xattr -cr /đường/dẫn/macos</code></td></tr>
+          <tr><th>Không chạy sau khi tải</th><td>Chuột phải <code>Play Takico.command</code> → Open</td></tr>
+          <tr><th>Game không lên</th><td>Terminal: <code>xattr -cr /đường/dẫn/macos</code></td></tr>
           <tr><th>Lỗi camera</th><td>Chrome → biểu tượng khóa → Camera → Allow</td></tr>
         </table>
       </div>

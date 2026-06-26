@@ -1,0 +1,29 @@
+ĐI CÙNG TAKICO — macOS (đọc trước khi chơi)
+==========================================
+
+Sau khi TẢI từ Google Drive / web, macOS có thể CHẶN file vì
+coi là "file lạ" — đây là bảo mật của Apple, KHÔNG phải virus.
+
+CÁCH MỞ LẦN ĐẦU (bắt buộc sau khi tải về):
+------------------------------------------
+1. Giải nén macos.zip
+2. CHUỘT PHẢI (right-click) vào "Play Takico.command"
+3. Chọn "Open" (Mở)
+4. Bấm "Open" lần nữa trong hộp thoại
+5. Game mở trong Chrome/Edge
+
+Các lần sau: double-click "Play Takico.command" bình thường.
+
+NẾU VẪN KHÔNG CHẠY — mở Terminal, dán lệnh:
+--------------------------------------------
+xattr -cr ~/Downloads/macos
+(lệnh trên gỡ cờ chặn; đổi đường dẫn đúng thư mục bạn giải nén)
+
+CÁCH KHÁC (không bị chặn):
+--------------------------
+- Copy thư mục macos qua USB trực tiếp (không tải zip từ web)
+- Hoặc dùng bản đã notarize từ Howls Studio (nếu có)
+
+Yêu cầu: macOS 12+, Chrome/Edge, webcam.
+
+Howls Studio — Honda HEAD Tân Kiều
